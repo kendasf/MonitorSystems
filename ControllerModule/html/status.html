@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    #include(navbar.inc class="active"{{active-device-setup}} <strong>{{strong-device-setup}} </strong>{{endstrong-device-setup}})
+    
+    <div class="container" style="margin-top: 60px">
+      <div class="row">
+        <div class="col-md-6">
+
+          <table class="table table-striped">
+            <tr class="info"><th colspan="3">Panels configuration</th></tr>
+            <tr>
+              <td><span id="dot-size"></span></td>
+              <td id="change-panels-config-row">
+                <button type="button" class="btn btn-danger btn-sm" aria-label="Left Align" onclick="change_panels_config()">
+                  <span class="glyphicon glyphicon-th" aria-hidden="true"></span> Change panels configuration
+                </button>
+              </td>
+              <td>
+              </td>
+            </tr>
+
+            <tr class="info"><th colspan="3">System info</th></tr> 
+            <tr>
+              <td>System time</td>
+              <td><span id="param-system-time"></span></td>
+              <td>
+                <button type="button" class="btn btn-info pull-right btn-xs" aria-label="Left Align" data-toggle="tooltip" data-placement="left" title="Synchronize clock with computer time" onclick="sync_time()" id="sync-time-btn">
+                  <span class="glyphicon glyphicon glyphicon-time" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+
+            <tr>
+              <td>Firmware rev.</td>
+              <td><span id="param-firmware"></span></td>
+              <td>
+              </td>
+            </tr>
+
+            <tr>
+              <td>Supply voltage</td>
+              <td><span id="param-supply-voltage"></span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>Luminance</td>
+              <td><span id="param-luminance"></span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>Speed units</td>
+              <td colspan="2"><span id="holder-param-speed-units" style="width: 100%"></span></td>
+            </tr>
+          
+            <tr class="info"><th colspan="3">Radar settings</th></tr>
+            <tr>
+              <td>Baud rate</td>
+              <td colspan="2"><span id="holder-param-radar-baud"></span></td>
+            </tr>
+
+            <tr>
+              <td>Protocol</td>
+              <td colspan="2"><span id="holder-param-radar-protocol"></span></td>
+            </tr>
+
+            <tr>
+              <td>Sensitivity</td>
+              <td colspan="2"><span id="holder-param-radar-sensitivity" style="width: 100%"></span></td>
+            </tr>
+          
+            <!--
+            <tr class="info"><th colspan="3">Ethernet settings</th></tr>
+            <tr>
+              <td>IP address</td>
+              <td id="input-ip-address"><input type="text" style="width: 100%" oninput="on_text_update('ip-address')" id="ip-address"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="ip-address-btn" onclick="change_text_value('ip-address')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            -->
+          </table>
+
+        </div>
+        <div class="col-md-6">
+          <table class="table table-striped">
+            <tr class="info"><th colspan="3">Wireless settings</th></tr>
+            <tr>
+              <td>Wifi name</td>
+              <td id="input-wifi-name"><input type="text" style="width: 100%" oninput="on_text_update('wifi-name')" id="wifi-name"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="wifi-name-btn" onclick="change_text_value('wifi-name')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+          
+            <tr class="info"><th colspan="3">Display settings</th></tr>
+            <tr>
+              <td>Min. displayed speed</td>
+              <td id="input-min-speed"><input type="number" min="0" max="199" style="width: 100%" oninput="on_text_update('min-speed')" id="min-speed"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="min-speed-btn" onclick="change_text_value('min-speed')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Max. displayed speed</td>
+              <td id="input-max-speed"><input type="number" min="0" max="199" style="width: 100%" oninput="on_text_update('max-speed')" id="max-speed"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="max-speed-btn" onclick="change_text_value('max-speed')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Speed limit treshold</td>
+              <td><input type="number" min="0" max="199" style="width: 100%" oninput="on_text_update('speed-limit')" id="speed-limit"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="speed-limit-btn" onclick="change_text_value('speed-limit')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Blink ON period</td>
+              <td id="input-blink-on"><input type="number" min="0" max="5000" style="width: 100%" oninput="on_text_update('blink-on')" id="blink-on"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="blink-on-btn" onclick="change_text_value('blink-on')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Blink OFF period</td>
+              <td id="input-blink-off"><input type="number" min="0" max="5000" style="width: 100%" oninput="on_text_update('blink-off')" id="blink-off"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="blink-off-btn" onclick="change_text_value('blink-off')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Display brightness</td>
+              <td><input type="number" min="0" max="100" style="width: 100%" oninput="on_text_update('display-brightness')" id="display-brightness"></input></td>
+              <td>
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="display-brightness-btn" onclick="change_text_value('display-brightness')">
+                  <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr>
+              <td>Automatic dimming</td>
+              <td>
+                <div class="btn-group" data-toggle="buttons">
+                  <label class="btn btn-primary btn-sm" id="autodimming-enabled-btn">
+                    <input type="checkbox" autocomplete="off" id="autodimming-enabled" onchange="change_auto_dimming()"><span id="autodimming-enabled-text">Disabled</span>
+                  </label>
+                </div>
+              </td>
+              <td id="edit-dimming-table-cell">
+                <button type="button" class="btn btn-info btn-xs pull-right" aria-label="Left Align" disabled="disabled" id="dimming-table-btn" onclick="edit_dimming_table()" data-toggle="tooltip" data-placement="left" title="Edit automatic dimming table">
+                  <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
+                </button>
+              </td>
+            </tr>
+            <tr class="info"><th colspan="3">Advanced settings</th></tr>
+            <tr>
+            <td colspan="3"> <table border="0"><tr><td>
+                <div class="dropdown" id="dropdown-config-modes">
+                  <button id="dLabel" class="btn btn-default btn-sm" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span>Edit display modes</span>
+                    <span class="caret"></span>
+                  </button>
+                  <ul class="dropdown-menu" aria-labelledby="dLabel">
+                    <li><a href="#" onclick="edit_config_modes(0)">When no vehicles detected</a></li>
+                    <li><a href="#" onclick="edit_config_modes(1)">When vehicle below speed limit</a></li>                
+                    <li><a href="#" onclick="edit_config_modes(2)">When vehicle above speed limit</a></li>
+                    <li><a href="#" onclick="edit_config_modes(3)">When vehicle above max. speed</a></li>
+                  </ul>
+                </div>
+              </td>
+              
+              <td>
+                <button type="button" class="btn btn-default btn-sm" aria-label="Left Align" id="test-display-btn" onclick="change_password()">
+                  <span class="glyphicon glyphicon-user" aria-hidden="true"></span> Change password
+                </button>
+              </td>
+              <td>
+                <button type="button" class="btn btn-default btn-sm" aria-label="Left Align" id="test-display-btn" onclick="run_test()">
+                  <span class="glyphicon glyphicon-play-circle" aria-hidden="true"></span> Activate test mode
+                </button>
+              </td>
+              <td>
+                <span id="upload-library-placeholder"></span>
+              </td>
+              </tr>
+              <tr><td>
+                <span id="autoconf-radar-placeholder"></span>
+              </td><td></td><td></td><td></td></tr>
+            </table></td>
+            </tr>
+          </table>          
+        </div>
+      </div>    
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="auto-dimming-table">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Automatic dimming table</h4>
+          </div>
+          <div class="modal-body">
+            <table style="width: 100%" id="dimming-table">
+              <tr><th>Intensity</th><th>Max. luminance</th>
+            </table>              
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="save_dimming_table()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="change-password-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Change password</h4>
+          </div>
+          <div class="modal-body">
+            <table style="width: 100%" id="dimming-table" class="table">
+              <tr><th>Password for user</th><td>
+                <div class="dropdown">
+                  <button id="dLabel" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <span id="selected-user">Power user</span>
+                    <span class="caret"></span>
+                  </button>
+                  <ul class="dropdown-menu" aria-labelledby="dLabel">
+                    <li id="item-power-user"><a href="#" onclick="select_user(0)">Power user</a></li>
+                    <li id="item-user-1"><a href="#" onclick="select_user(1)">User level 1</a></li>                
+                    <li id="item-user-2"><a href="#" onclick="select_user(2)">User level 2</a></li>
+                  </ul>
+                </div> 
+
+              </td></tr>
+              <tr><th>Old password</th><td><input type="password" style="width: 100%" id="old-password"></input></td></tr>
+              <tr><th>New password</th><td><input type="password" style="width: 100%" id="new-password"></input></td></tr>
+              <tr><th>Retype new password</th><td><input type="password" style="width: 100%" id="new-password-2"></input></td></tr>
+            </table>              
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="do_change_password()">Change</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="message-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="message-title"></h4>
+          </div>
+          <div class="modal-body">
+            <span id="message-text"></span>            
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="test-mode">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Activate test mode</h4>
+          </div>
+          <div class="modal-body">
+            <table class="table" style="width: 100%">
+              <tr><td colspan="2">
+                <div class="btn-group" data-toggle="buttons" style="width: 100%">
+                  <label class="btn btn-primary active" style="width: 50%">
+                    <input type="radio" name="options" autocomplete="off" checked id="radio-all-leds" onchange="on_testmode_change()"> Turn on all LEDs
+                  </label>
+                  <label class="btn btn-primary" style="width: 50%">
+                    <input type="radio" name="options" autocomplete="off" onchange="on_testmode_change()"> Display stored image
+                  </label>
+                </div>
+              </td>
+              </tr>
+              <tr>
+              <td style="vertical-align: bottom" width="50%">Image ID</td><td><input type="number" min="1" max="500" style="width: 90%" id="test-image-id" value="1" disabled></input></td></td></tr>
+              <tr><td>Duration</td><td><input type="number" min="0" max="10" style="width: 90%" id="test-duration" value="1"></input> sec</td></tr>
+            </table>              
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="start_test_mode()">Start</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="panels-config-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Change Panels Configuration</h4>
+          </div>
+          <div class="modal-body">
+            <div class="dropdown">
+              <button id="dLabel" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span id="panels-config-text">Portrait: 1 Row, 2 Columns (16x10)</span>
+                <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu" aria-labelledby="dLabel">
+                <li class="dropdown-header">Portrait</li>
+                <li><a href="#" onclick="select_panels_config(1, 2, 0, 1)">1 Row, 2 Columns (16x10)</a></li>
+                <li><a href="#" onclick="select_panels_config(2, 2, 0, 5)">2 Rows, 2 Columns (16x20)</a></li>                
+                <li><a href="#" onclick="select_panels_config(2, 3, 0, 11)">2 Rows, 3 Columns (24x20)</a></li>
+                <li><a href="#" onclick="select_panels_config(2, 4, 0, 13)">2 Rows, 4 Columns (32x20)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 2, 0, 8)">3 Rows, 2 Columns (16x30)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 3, 0, 15)">3 Rows, 3 Columns (24x30)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 4, 0, 17)">3 Rows, 4 Columns (32x30)</a></li>
+                <li class="dropdown-header">Landscape</li>
+                <li><a href="#" onclick="select_panels_config(2, 2, 1, 4)">2 Rows, 2 Columns (20x16)</a></li>                
+                <li><a href="#" onclick="select_panels_config(2, 3, 1, 10)">2 Rows, 3 Columns (30x16)</a></li>
+                <li><a href="#" onclick="select_panels_config(2, 4, 1, 14)">2 Rows, 4 Columns (40x16)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 2, 1, 9)">3 Rows, 2 Columns (20x24)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 3, 1, 16)">3 Rows, 3 Columns (30x24)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 4, 1, 18)">3 Rows, 4 Columns (40x24)</a></li>
+                <li><a href="#" onclick="select_panels_config(3, 5, 1, 19)">3 Rows, 5 Columns (50x24)</a></li>
+                <li><a href="#" onclick="select_panels_config(4, 4, 1, 21)">4 Rows, 4 Columns (40x32)</a></li>
+                <li><a href="#" onclick="select_panels_config(4, 5, 1, 20)">4 Rows, 5 Columns (50x32)</a></li>
+              </ul>
+            </div>             
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="save_panels_configuration()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="upload-vil-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Upload Image Library</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="modal-body" id="file-upload-body">          
+                  <div class="input-group" style="width: 100%">
+                    <input type="file" name="upload-file" id="upload-file" class="form-control"/>
+                  </div>      
+              </div>
+            </form>    
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="display-modes-dlg">
+      <div class="modal-dialog modal-dialog-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="display-modes-dlg-title">Edit Display Mode</h4>
+          </div>
+          <div class="modal-body">
+            <table class="table">
+            <tr><th width="40%">Speed display settings</th><td>
+              <div class="dropdown" style="width: 100%">
+                  <button id="dLabel" class="btn btn-default btn-sm" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="width: 100%;text-align: left">
+                    <span class="caret pull-right" style="margin-top: 7px"></span>
+                    <span id="speed-display-settings">Do not display speed</span>
+                  </button>
+                  <ul class="dropdown-menu" aria-labelledby="dLabel" style="width: 100%">
+                    <li><a href="#" onclick="change_speed_display_settings(0)">Do not display speed</a></li>
+                    <li><a href="#" onclick="change_speed_display_settings(1)">Display speed</a></li>                
+                    <li><a href="#" onclick="change_speed_display_settings(2)">Display speed with blinking</a></li>
+                  </ul>
+                </div>
+            </td></tr>
+            <tr><th>Speed position</th>
+            <td>
+              <div class="input-group input-group-sm">
+                <span class="input-group-addon">X</span>
+                <input type="number" class="form-control" min="0" max="60" style="width: 100%" oninput="change_x_pos()" id="speed-display-pos-x"></input>
+              </div>
+              <br/>
+              <div class="input-group input-group-sm">
+                <span class="input-group-addon">Y</span>
+                <input type="number" class="form-control" min="0" max="48" style="width: 100%" oninput="change_y_pos()" id="speed-display-pos-y"></input>
+              </div>
+            </td></tr>
+            <tr>
+              <th>Font</th>
+              <td>
+                <div class="dropdown" style="width: 100%">
+                  <button id="dLabel" class="btn btn-default btn-sm" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="width: 100%;text-align: left">
+                    <span class="caret pull-right" style="margin-top: 7px"></span>
+                    <span id="speed-display-font">Small 7"</span>
+                  </button>
+                  <ul class="dropdown-menu" aria-labelledby="dLabel" style="width: 100%">
+                    <li><a href="#" onclick="change_speed_display_font(0)">Small 7"</a></li>
+                    <li><a href="#" onclick="change_speed_display_font(1)">Normal 9"</a></li>                
+                    <li><a href="#" onclick="change_speed_display_font(2)">Bold 10"</a></li>
+                    <li><a href="#" onclick="change_speed_display_font(3)">Large 13"</a></li>
+                    <li><a href="#" onclick="change_speed_display_font(4)">Huge 18"</a></li>
+                    <li><a href="#" onclick="change_speed_display_font(5)">Enormous 24"</a></li>
+                  </ul>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Overlay sequence</th>
+              <td>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-addon">Frame duration</span>
+                  <input type="number" class="form-control" min="700" max="5000" style="width: 100%" oninput="change_frame_duration()" id="speed-display-frame-duration"></input>
+                  <span class="input-group-addon">msec</span>
+                </div>
+                <br/>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-addon">Number of frames</span>
+                  <input type="number" class="form-control" min="0" max="10" style="width: 100%" oninput="change_number_of_frames()" id="speed-display-frames-count"></input>
+                </div>
+                <br/>
+                <span id="bitmap-ids-title"><b>Bitmap IDs for sequence</b></span>
+                <br/>
+                <div class="row">
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" style="width:100%" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-0"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-1"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-2"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-3"></input>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-4"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-5"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-6"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-7"></input>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-8"></input>
+                  </div>
+                  <div class="col-sm-3" style="margin-bottom: 7px">
+                    <input type="number" class="form-control input-sm" min="1" max="500" style="width: 100%" oninput="change_sequence()" id="speed-display-frame-id-9"></input>
+                  </div>
+                  <div class="col-sm-3">
+                  </div>
+                  <div class="col-sm-3">
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Preview</th>
+              <td><div id="image-editor" width="100%" style="margin-top: 15px"></div></td>
+            </tr>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal" onclick="stop_preview_update()">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="save_display_mode()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/raphael.min.js"></script>
+    <script src="js/fileinput.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/md5.js"></script>
+    <script src="js/status.js"></script>
+  </body>
+</html>

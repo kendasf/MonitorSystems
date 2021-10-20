@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    
+    <div class="row" style="margin-top: 30px">
+      <div class="col-md-4">
+      </div>
+      <div class="col-md-4">
+        <div class="jumbotron">
+          <h2>Monitor Systems</h2>
+          <h1>Control Center</h1>
+          <hr/>
+          <div class="row">
+            <div class="col-lg-5" style="padding-top: 10px">
+              <div class="dropdown" style="width: 100%">
+                <button id="login-user" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="btn btn-default" style="width: 100%; text-align:left">
+                <span class="pull-right"><span class="caret"></span></span>
+                  <span id="login-user-text">User level 1</span>
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="dLabel" style="width: 100%;">
+                  <li><a href="#" onclick="$('#login-user-text').html('User level 1')">User level 1</a></li>
+                  <li><a href="#" onclick="$('#login-user-text').html('User level 2')">User level 2</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li><a href="#" onclick="$('#login-user-text').html('Admin')">Admin</a></li>
+                </ul>
+              </div>              
+            </div>
+            <div class="col-lg-4" style="padding-top: 10px"><input type="password" class="form-control" id="password" placeholder="Password" onkeypress="detect_enter(event)"></div>
+            <div class="col-lg-2" style="padding-top: 10px"><p><a id="login-button" class="btn btn-primary" href="#" role="button" onclick="do_login()">Log in</a></p></div>
+            <div class="col-lg-1"></div>
+          </div>
+          <hr/>
+        </div>
+        <div class="alert alert-danger alert-dismissible" role="alert" id="incorrect-password" style="display: none">
+          <strong>Incorrect password!</strong>
+        </div>
+        
+      </div>
+      <div class="col-md-4">
+      </div>  
+    </div>
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/md5.js"></script>
+    <script src="js/jreject.min.js"></script>
+    <script>
+      $.reject({  
+              reject: { unknown: true, msie: 9 }, // Reject all renderers for demo  
+              display: ['firefox','chrome', 'safari'],
+              header: 'Your browser is not supported', // Header Text  
+              paragraph1: 'You are currently using an unsupported browser', // Paragraph 1  
+              paragraph2: 'Please install one of the many optional browsers below to proceed',  
+              closeMessage: 'Close this window to continue using current browser at your own risk!' // Message below close window link  
+          });
+
+      function do_login() {
+        $.ajax("/get_salt?ts=" + (+new Date()), {
+          dataType: "json" 
+        }).done(function(response) {
+          if (response.salt && response.id)
+            send_password(response.salt, response.id);
+        });
+      }
+
+      function detect_enter(e) {
+       if (e.keyCode == 13) {
+              do_login();
+              return false;
+          }
+      }
+
+      function send_password(salt, id) {
+        var unhashed_code = salt + $("#password").val();
+        var level = 2;
+        if ($("#login-user-text").text() == "User level 1")
+          level = 1;
+        if ($("#login-user-text").text() == "Admin")
+          level = 0;       
+        
+        $.ajax("/get_auth_token?id=" + id + "&level=" + level + "&code=" + md5(unhashed_code) + "&ts=" + (+ new Date()), {
+          dataType: "json" 
+        }).done(function(response) {
+          if (response.token)
+            window.location.href = "/status.html?token=" + response.token;
+          else {
+            $("#incorrect-password").show("shake", 600);
+            $("#password").addClass("alert-danger", 400);
+            setTimeout(function() { 
+              $("#incorrect-password").hide();
+              $("#password").removeClass("alert-danger", 400);
+            }, 4000);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

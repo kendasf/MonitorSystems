@@ -1,0 +1,6 @@
+#ifndef __FLASHDRIVETASK_H_INCLUDED
+#define __FLASHDRIVETASK_H_INCLUDED
+
+int isFlashDrivePresent();
+
+#endif // __FLASHDRIVETASK_H_INCLUDED

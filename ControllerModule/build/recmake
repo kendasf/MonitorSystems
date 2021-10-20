@@ -1,0 +1,5 @@
+#! /bin/bash
+
+rm CMakeCache.txt
+
+cmake .. -DCMAKE_TOOLCHAIN_FILE="../CMakeToolchain.txt"

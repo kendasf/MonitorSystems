@@ -1,0 +1,159 @@
+html, body {
+    height: 100%;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    display: block;
+}
+
+a:focus {
+	outline-width: 0;
+}
+
+div:focus {
+	outline-width: 0;	
+}
+
+#video-panel {
+	position: fixed;
+	width:100%;
+	height: auto;
+	top:40px;
+	bottom: 0;
+	background-color: black;
+}
+
+@media (max-width: 768px) {
+	#video-panel {
+		position: fixed;
+		width:100%;
+		overflow: scroll;
+	}
+}
+
+.small-video-display {
+	float: left;
+	width: 50%;
+	height: 50%;
+}
+
+@media (max-width: 768px) {
+	.small-video-display {
+		width: 100%;
+		height: 100%;
+	}
+}
+
+.correct-top {
+	height: 75px;
+}
+
+.column-bottom-padding {
+	padding-bottom: 0;
+}
+
+@media (max-width: 992px) {
+	.column-bottom-padding {
+		padding-bottom: 10px;
+	}
+}
+
+.full-bottom-padding {
+	padding-bottom: 10px;
+}
+
+.map_marker {
+	padding: 0 !important;
+	font-family: 'Glyphicons Halflings';
+  font-style: normal;
+  font-weight: normal;
+  font-size: 19px !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: auto !important;
+}
+
+.map_marker:before {
+	content: "\e046";
+}
+
+button {
+  -webkit-app-region: no-drag;
+}
+
+li {
+  -webkit-app-region: no-drag;
+}
+
+a {
+  -webkit-app-region: no-drag;
+}
+
+.archive_header {
+  line-height: 2em;
+}
+
+#chart-hourly-distribution svg {
+  width:100%;
+}
+
+#chart-radar-distribution svg {
+  width:100%;
+}
+
+.upper_3_4 {
+  position: absolute;
+  top: 75px;
+  bottom: 30%;
+  padding-bottom: 15px;
+}
+
+.lower_1_4 {
+  position: absolute;
+  top: 70%;
+  bottom: 15px;
+  padding-top: 15px;
+}
+
+@media (max-width: 768px) {
+  .upper_3_4 {
+    position: static;
+    padding-top: 75px;
+  }
+
+  .lower_1_4 {
+    position: static;
+  }
+
+  #radar-screen {
+    height: 150px !;
+  }
+}
+
+@media (max-height: 725px) {
+  .upper_3_4 {
+    position: static;
+    padding-top: 75px;
+  }
+
+  .lower_1_4 {
+    position: static;
+  }
+
+  #radar-screen {
+    height: 150px !;
+  }
+}
+
+.datepicker{z-index:1151 !important;}
+
+@font-face {
+  font-family: 'Jaldi-Regular';
+  src: url('/fonts/Jaldi-Regular.eot');
+  src: local('☺'), url('/fonts/Jaldi-Regular.woff') format('woff'), url('/fonts/Jaldi-Regular.ttf') format('truetype'), url('/fonts/Jaldi-Regular.svg') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
