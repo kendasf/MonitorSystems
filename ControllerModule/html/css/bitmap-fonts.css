@@ -1,0 +1,65 @@
+@font-face {
+  font-family: 'Bold10px-Regular';
+  src: url('../fonts/Bold10px-Regular.eot');
+  src: url('../fonts/Bold10px-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/Bold10px-Regular.woff') format('woff'),
+    url('../fonts/Bold10px-Regular.ttf') format('truetype'),
+    url('../fonts/Bold10px-Regular.svg#Bold10px-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: '7x9-Regular';
+  src: url('../fonts/7x9-Regular.eot');
+  src: url('../fonts/7x9-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/7x9-Regular.woff') format('woff'),
+    url('../fonts/7x9-Regular.ttf') format('truetype'),
+    url('../fonts/7x9-Regular.svg#7x9-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geolux10pxNarrow-Regular';
+  src: url('../fonts/Geolux10pxNarrow-Regular.eot');
+  src: url('../fonts/Geolux10pxNarrow-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/Geolux10pxNarrow-Regular.woff') format('woff'),
+    url('../fonts/Geolux10pxNarrow-Regular.ttf') format('truetype'),
+    url('../fonts/Geolux10pxNarrow-Regular.svg#Geolux10pxNarrow-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geolux10pxMonospaced-Regular';
+  src: url('../fonts/Geolux10pxMonospaced-Regular.eot');
+  src: url('../fonts/Geolux10pxMonospaced-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/Geolux10pxMonospaced-Regular.woff') format('woff'),
+    url('../fonts/Geolux10pxMonospaced-Regular.ttf') format('truetype'),
+    url('../fonts/Geolux10pxMonospaced-Regular.svg#Geolux10pxMonospaced-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Narrow7px-Regular';
+  src: url('../fonts/Narrow7px-Regular.eot');
+  src: url('../fonts/Narrow7px-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/Narrow7px-Regular.woff') format('woff'),
+    url('../fonts/Narrow7px-Regular.ttf') format('truetype'),
+    url('../fonts/Narrow7px-Regular.svg#Narrow7px-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'NEMA5x7-Regular';
+  src: url('../fonts/NEMA5x7-Regular.eot');
+  src: url('../fonts/NEMA5x7-Regular.eot?#iefix') format('embedded-opentype'),
+    url('../fonts/NEMA5x7-Regular.woff') format('woff'),
+    url('../fonts/NEMA5x7-Regular.ttf') format('truetype'),
+    url('../fonts/NEMA5x7-Regular.svg#NEMA5x7-Regular') format('svg');
+  font-weight: normal;
+  font-style: normal;
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    #include(navbar.inc class="active"{{active-camera}} <strong>{{strong-camera}} </strong>{{endstrong-camera}})
+
+    <div class="container" style="margin-top: 60px">
+      <div class="panel panel-default">
+      <div class="panel-heading">Camera preview</div>
+        <div class="panel-body">
+          <div class="row">
+            <div class="col-md-1"></div>
+            <div class="col-md-10">
+              <div class="thumbnail" id="main-body">
+              </div>
+            </div>
+            <div class="col-md-1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    
+    
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/utils.js"></script>
+
+    <script>
+        function take_snapshot() {
+          var token = get_token();
+          $.ajax("/take_snapshot?token=" + token + "&ts=" + (+ new Date()), {
+            dataType: "json" 
+          }).done(function(response) {
+          });
+        }
+
+        function reload_image() {
+          var token = get_token();
+          $("#preview-image").prop("src", '/get_last_snapshot?token=' + token + "&ts=" + (+ new Date()));
+        }
+
+        var token = get_token();
+        $("#main-body").html('<img src="/get_last_snapshot?token=' + token + "&ts=" + (+ new Date()) + '" id="preview-image" width="100%">');
+
+        take_snapshot();
+        setInterval(take_snapshot, 1000);
+        setInterval(reload_image, 500);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    #include(navbar.inc class="active"{{active-scheduler}} <strong>{{strong-scheduler}} </strong>{{endstrong-scheduler}})
+
+    <div class="container-fluid" style="margin-top: 60px">
+      <div class="panel panel-default">
+      <div class="panel-heading">
+        <div class="btn-group" data-toggle="buttons">
+          <label class="btn btn-primary btn-sm" id="keep-sign-always-on">
+            <input type="checkbox" autocomplete="off" id="autodimming-enabled" onchange="change_use_scheduler()"><span id="keep-sign-always-on-text">Keep sign always on - the defined intervals are ignored</span>
+          </label>
+        </div>
+      </div>
+        <div class="panel-body" id="scheduler-list">
+        </div>
+        <div class="panel-footer"><button type="button" class="btn btn-primary btn-sm" onclick="add_interval()">Add interval</button></div>
+      </div>
+    </div>
+
+    
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="add-inteval-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Add Scheduled Event</h4>
+          </div>
+          <div class="modal-body">
+            <table class="table">
+            <tr><th width="30%">Start day</th><td width="35%">
+              <div class="dropdown">
+                <button id="dLabel" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <span id="event-active">Every day</span>
+                  <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="dLabel">
+                  <li><a href="#" onclick="set_event_active(0)">Every day</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li><a href="#" onclick="set_event_active(1)">Sunday</a></li>
+                  <li><a href="#" onclick="set_event_active(2)">Monday</a></li>
+                  <li><a href="#" onclick="set_event_active(3)">Tuesday</a></li>
+                  <li><a href="#" onclick="set_event_active(4)">Wednesday</a></li>
+                  <li><a href="#" onclick="set_event_active(5)">Thursday</a></li>
+                  <li><a href="#" onclick="set_event_active(6)">Friday</a></li>
+                  <li><a href="#" onclick="set_event_active(7)">Saturday</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li><a href="#" onclick="set_event_active(8)">Set exact date</a></li>
+                </ul>
+              </div> 
+            </td>
+            <td>
+              <input id="exact-date">
+            </td>
+            </tr>
+            <tr><th>Start time</th><td>
+              <input type="text" value="00:00" id="start-time">
+            </td><td></td></tr>
+            <tr><th>Event duration</th><td>
+              <input type="text" value="01:00" id="interval-duration">
+            </td><td></td></tr>
+            <tr><th>Event active between</th><td><input id="start-date"></td><td><input id="end-date"></td></tr>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-danger" onclick="do_add_interval()">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/bootstrap-datepicker.js"></script>
+    <script src="js/bootstrap-clockpicker.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/scheduler.js"></script>
+  </body>
+</html>

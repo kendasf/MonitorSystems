@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    #include(navbar.inc class="active"{{active-images}} <strong>{{strong-images}} </strong>{{endstrong-images}})
+
+    <div class="container-fluid" style="margin-top: 60px" id="bitmap-grid">
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="image-edit-dialog">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Image editor</h4>
+          </div>
+          <div class="modal-body">
+              <div class="row">
+                <div class="col-md-4">
+                                <table class="table table-condensed">
+                                <tr class="info"><th colspan="3">Vertical Alignment</th></tr> 
+                                <tr><td>
+                                    <div class="btn-group  btn-group-sm btn-group-justified" data-toggle="buttons">
+                                    <label class="btn btn-default active" onclick="update_text({ 'vertical-align' : 'top'})" id="img-edit-valign-top-label">
+                                        <input type="radio" name="options" id="img-edit-valign-top" autocomplete="off" checked> Top
+                                    </label>
+                                    <label class="btn btn-default" onclick="update_text({ 'vertical-align' : 'center'})" id="img-edit-valign-center-label">
+                                     <input type="radio" name="options" id="img-edit-valign-center" autocomplete="off"> Center
+                                    </label>
+                                    <label class="btn btn-default" onclick="update_text({ 'vertical-align' : 'bottom'})" id="img-edit-valign-bottom-label">
+                                        <input type="radio" name="options" id="img-edit-valign-bottom" autocomplete="off"> Bottom
+                                    </label>
+                                    </div>
+                                </td>
+                                </tr>
+                                </table>
+
+                                <table class="table table-condensed">
+                                <tr class="info"><th colspan="3">Line 1</th></tr> 
+                                <tr><td>
+                                <input type="text" class="form-control input-sm" id="line1-text" placeholder="Enter text" onchange="update_text({'line1-text': $('#line1-text').val()})" onkeyup="update_text({'line1-text': $('#line1-text').val()})">
+                                <div class="dropdown" id="img-edit-line1-font-dropdown" style="width: 100%">
+                                  <button class="btn btn-default btn-sm dropdown-toggle" type="button" id="img-edit-line1-font" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true" style="width: 100%; text-align:left">
+                                    Narrow 10"
+                                    <span class="pull-right"><span class="caret"></span></span>
+                                  </button>
+                                  <ul class="dropdown-menu" aria-labelledby="img-edit-line1-font" style="width: 100%">
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'Narrow 7.5'})">Narrow 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'NEMA 7.5'})">NEMA 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'Large 9.5'})">Large 9.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'Narrow 10'})">Narrow 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'Wide 10'})">Wide 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line1-font' : 'Bold 13'})">Bold 13"</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group  btn-group-sm btn-group-justified" data-toggle="buttons">
+                                  <label class="btn btn-default active" onclick="update_text({ 'line1-align' : 'left'})" id="line1-align-left-label">
+                                    <input type="radio" name="options" id="line1-align-left" autocomplete="off" checked> Left
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line1-align' : 'center'})" id="line1-align-center-label">
+                                    <input type="radio" name="options" id="line1-align-center" autocomplete="off"> Center
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line1-align' : 'right'})" id="line1-align-right-label">
+                                    <input type="radio" name="options" id="line1-align-right" autocomplete="off"> Right
+                                  </label>
+                                </div>
+                                </td></tr></table>
+
+                                <table class="table table-condensed">
+                                <tr class="info"><th colspan="3">Line 2</th></tr> 
+                                <tr><td>
+                                <input type="text" class="form-control input-sm" id="line2-text" placeholder="Enter text" onchange="update_text({'line2-text': $('#line2-text').val()})" onkeyup="update_text({'line2-text': $('#line2-text').val()})">
+                                <div class="dropdown" id="img-edit-line1-font-dropdown" style="width: 100%">
+                                  <button class="btn btn-default btn-sm dropdown-toggle" type="button" id="img-edit-line2-font" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true" style="width: 100%; text-align:left">
+                                    Narrow 10"
+                                    <span class="pull-right"><span class="caret"></span></span>
+                                  </button>
+                                  <ul class="dropdown-menu" aria-labelledby="img-edit-line2-font" style="width: 100%">
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'Narrow 7.5'})">Narrow 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'NEMA 7.5'})">NEMA 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'Large 9.5'})">Large 9.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'Narrow 10'})">Narrow 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'Wide 10'})">Wide 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line2-font' : 'Bold 13'})">Bold 13"</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group  btn-group-sm btn-group-justified" data-toggle="buttons">
+                                  <label class="btn btn-default active" onclick="update_text({ 'line2-align' : 'left'})" id="line2-align-left-label">
+                                    <input type="radio" name="options" id="line2-align-left" autocomplete="off" checked> Left
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line2-align' : 'center'})" id="line2-align-center-label">
+                                    <input type="radio" name="options" id="line2-align-center" autocomplete="off"> Center
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line2-align' : 'right'})" id="line2-align-right-label">
+                                    <input type="radio" name="options" id="line2-align-right" autocomplete="off"> Right
+                                  </label>
+                                </div>
+                                </td></tr></table>
+
+                                <table class="table table-condensed">
+                                <tr class="info"><th colspan="3">Line 3</th></tr> 
+                                <tr><td>
+                                <input type="text" class="form-control input-sm" id="line3-text" placeholder="Enter text" onchange="update_text({'line3-text': $('#line3-text').val()})" onkeyup="update_text({'line3-text': $('#line3-text').val()})">
+                                <div class="dropdown" id="img-edit-line1-font-dropdown" style="width: 100%">
+                                  <button class="btn btn-default btn-sm dropdown-toggle" type="button" id="img-edit-line3-font" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true" style="width: 100%; text-align:left">
+                                    Narrow 10"
+                                    <span class="pull-right"><span class="caret"></span></span>
+                                  </button>
+                                  <ul class="dropdown-menu" aria-labelledby="img-edit-line3-font" style="width: 100%">
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'Narrow 7.5'})">Narrow 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'NEMA 7.5'})">NEMA 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'Large 9.5'})">Large 9.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'Narrow 10'})">Narrow 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'Wide 10'})">Wide 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line3-font' : 'Bold 13'})">Bold 13"</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group  btn-group-sm btn-group-justified" data-toggle="buttons">
+                                  <label class="btn btn-default active" onclick="update_text({ 'line3-align' : 'left'})" id="line3-align-left-label">
+                                    <input type="radio" name="options" id="line3-align-left" autocomplete="off" checked> Left
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line3-align' : 'center'})" id="line3-align-center-label">
+                                    <input type="radio" name="options" id="line3-align-center" autocomplete="off"> Center
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line3-align' : 'right'})" id="line3-align-right-label">
+                                    <input type="radio" name="options" id="line3-align-right" autocomplete="off"> Right
+                                  </label>
+                                </div>
+                                </td></tr></table>
+
+                                <table class="table table-condensed">
+                                <tr class="info"><th colspan="3">Line 4</th></tr> 
+                                <tr><td>
+                                <input type="text" class="form-control input-sm" id="line4-text" placeholder="Enter text" onchange="update_text({'line4-text': $('#line4-text').val()})" onkeyup="update_text({'line4-text': $('#line4-text').val()})">
+                                <div class="dropdown" id="img-edit-line1-font-dropdown" style="width: 100%">
+                                  <button class="btn btn-default btn-sm dropdown-toggle" type="button" id="img-edit-line4-font" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true" style="width: 100%; text-align:left">
+                                    Narrow 10"
+                                    <span class="pull-right"><span class="caret"></span></span>
+                                  </button>
+                                  <ul class="dropdown-menu" aria-labelledby="img-edit-line4-font" style="width: 100%">
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'Narrow 7.5'})">Narrow 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'NEMA 7.5'})">NEMA 7.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'Large 9.5'})">Large 9.5"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'Narrow 10'})">Narrow 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'Wide 10'})">Wide 10"</a></li>
+                                    <li><a href="#" onclick="update_text({ 'line4-font' : 'Bold 13'})">Bold 13"</a></li>
+                                  </ul>
+                                </div>
+                                <div class="btn-group  btn-group-sm btn-group-justified" data-toggle="buttons">
+                                  <label class="btn btn-default active" onclick="update_text({ 'line4-align' : 'left'})" id="line4-align-left-label">
+                                    <input type="radio" name="options" id="line4-align-left" autocomplete="off" checked> Left
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line4-align' : 'center'})" id="line4-align-center-label"> 
+                                    <input type="radio" name="options" id="line4-align-center" autocomplete="off"> Center
+                                  </label>
+                                  <label class="btn btn-default" onclick="update_text({ 'line4-align' : 'right'})" id="line4-align-right-label">
+                                    <input type="radio" name="options" id="line4-align-right" autocomplete="off"> Right
+                                  </label>
+                                </div>
+                                </td></tr></table>
+                      </div>
+
+                <div class="col-md-8">
+                    <div class="btn-group" role="group" aria-label="...">
+                      <button type="button" class="btn btn-default btn-sm" onclick="image_editor_clear_image()">Clear image</button>
+                    </div>                    
+                    <div id="image-editor" width="100%" height="100%" style="margin-top: 15px"></div>
+                    <span style="font-family: 'Bold10px-Regular';">&nbsp;</span>
+                    <span style="font-family: '7x9-Regular';">&nbsp;</span>
+                    <span style="font-family: 'Geolux10pxNarrow-Regular';">&nbsp;</span>
+                    <span style="font-family: 'Geolux10pxMonospaced-Regular';">&nbsp;</span>
+                    <span style="font-family: 'Narrow7px-Regular';">&nbsp;</span>
+                    <span style="font-family: 'NEMA5x7-Regular';">&nbsp;</span>
+                </div>
+              </div>
+          </div>
+          <div class="modal-footer">
+            <span id="load-file"></span>
+            <button type="button" class="btn btn-default" onclick="load_from_library()">Load from library...</button>
+            <span id="save-file"></span>
+            &nbsp;
+            &nbsp;
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="save_image()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="select-library-image-dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Select library image</h4>
+          </div>
+          <div class="modal-body">
+            <div id="library-bitmap-grid">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="select-image-file-dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Select image from file</h4>
+          </div>
+          <div class="modal-body" id="select-image-div">
+            <input type="file" id="image_files" name="image_files[]" accept="image/*" />
+            <canvas id="loaded-image-canvas"></canvas>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-default" onclick="use_loaded_image()">Use Image</button>
+          </div>
+        </div>
+      </div>
+    </div>
+   
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/raphael.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/bitmaps.js"></script>
+    <script src="js/filesaver.js"></script>
+    <script src="js/canvas2blob.js"></script>
+  </body>
+</html>

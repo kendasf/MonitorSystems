@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+#include(head.inc)
+
+  <body onload="">
+    #include(navbar.inc class="active"{{active-files}} <strong>{{strong-files}} </strong>{{endstrong-files}})
+
+    <div class="container-fluid" style="margin-top: 60px">
+      <div class="panel panel-default">
+      <div class="panel-heading" id="current-folder">/</div>
+        <div class="panel-body" id="files-list">
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="confirm-delete-dialog">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Confirm file delete</h4>
+          </div>
+          <div class="modal-body">
+            <p>Do you really want to delete <span id="delete-file-name"></span>?</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary btn-danger" onclick="perform_delete()">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="message-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="message-title"></h4>
+          </div>
+          <div class="modal-body">
+            <span id="message-text"></span>            
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="pdf-report-dlg">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title">Report Settings</h4>
+          </div>
+          <div class="modal-body">
+            <table style="width: 100%" id="dimming-table" class="table">
+              <tr><th>Report title</th><td><input type="text" style="width: 100%" id="report-title"></input></td></tr>
+              <tr><th>Author</th><td><input type="text" style="width: 100%" id="report-author"></input></td></tr>
+              <tr><th>Location</th><td><input type="text" style="width: 100%" id="report-location"></input></td></tr>
+              <tr><th>Comments</th><td><input type="text" style="width: 100%" id="report-comments"></input></td></tr>
+            </table>            
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" onclick="start_pdf_generate()">Generate PDF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="js/jquery.min.js"></script>
+    <script src="js/jquery-ui.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/files.js"></script>
+    <script src="js/jspdf.min.js"></script>
+    <script src="js/report_generator.js"></script>
+  </body>
+</html>
