@@ -102,11 +102,7 @@ void FileRoutines_init()
 //
 void FileRoutines_readDeviceInfo(DeviceInfoS* pDeviceInfo)
 {
-#ifndef SIMULATOR_MODE
 	int fd = open("/store/Data/DeviceInfoS.dat", O_RDONLY);
-#else
-	int fd = open("store/Data/DeviceInfoS.dat", O_RDONLY);
-#endif
 	if (fd >= 0)
 	{
 		read(fd, pDeviceInfo, sizeof(DeviceInfoS)); 
@@ -126,11 +122,7 @@ void FileRoutines_readDeviceInfo(DeviceInfoS* pDeviceInfo)
 void FileRoutines_writeDeviceInfo(DeviceInfoS* pDeviceInfo)
 {
 	int i;
-#ifndef SIMULATOR_MODE
 	int fd = open("/store/Data/DeviceInfoS.dat", O_WRONLY | O_CREAT, 0666);
-#else
-	int fd = open("store/Data/DeviceInfoS.dat", O_WRONLY | O_CREAT, 0666);
-#endif
 	if (fd < 0)
 	{
 		printf("/store/Data/DeviceInfoS.dat ERR-0: %d - %s\r\n", errno, strerror(errno));
@@ -153,11 +145,7 @@ void FileRoutines_readBitmap(int idx, BitmapS* pBitmap)
 {
 	FILE* fd;
 	char bmapFname[25];
-#ifndef SIMULATOR_MODE
 	sprintf(bmapFname, "/store/Data/bitmap%d.dat", idx);
-#else
-	sprintf(bmapFname, "store/Data/bitmap%d.dat", idx);
-#endif
 	fd = fopen(bmapFname, "r+");
 	if (fd != NULL)
 	{
@@ -203,11 +191,7 @@ void FileRoutines_writeBitmap(int idx, BitmapS* pBitmap)
 {
 	int fd;
 	char bmapFname[25];
-#ifndef SIMULATOR_MODE
 	sprintf(bmapFname, "/store/Data/bitmap%d.dat", idx);
-#else
-	sprintf(bmapFname, "store/Data/bitmap%d.dat", idx);
-#endif
 	fd = open(bmapFname, O_WRONLY | O_CREAT, 0666);
 	write(fd, pBitmap, sizeof(BitmapS));
 	close(fd);
@@ -443,18 +427,16 @@ void FileRoutines_addLog(int logEntryType, char *pParams)
 	//
 	// open a file
 	//
-	if (CanWriteMemoryCard())
+	if (0 != CanWriteMemoryCard() )	/* Can we write to the USB? */ 
 	{
-	#ifndef SIMULATOR_MODE
 		sprintf(filename, "/store/System/Events%d%02d.txt", RTC_YEAR, RTC_MONTH);
-	#else
-		sprintf(filename, "store/System/Events%d%02d.txt", RTC_YEAR, RTC_MONTH);
-	#endif
 		fh = _sys_open((const char*)filename, OPEN_A);		
 		if (fh == -1)
+		{
 			printf("ERR-1: %s %d - %s\r\n", filename, errno, strerror(errno));
+		}
 	}
-	if (fh == -1)
+	else
 	{
 		return;
 	}
@@ -487,11 +469,7 @@ void FileRoutines_addCSVLog(char *logEntry)
 	//
 	if (CanWriteMemoryCard())
 	{
-		#ifndef SIMULATOR_MODE
 		sprintf(filename, "/store/System/Sys%d%02d.dat", RTC_YEAR, RTC_MONTH);
-		#else
-		sprintf(filename, "store/System/Sys%d%02d.dat", RTC_YEAR, RTC_MONTH);
-		#endif
 		fh = _sys_open((const char*)filename, OPEN_A);		
 	}
 	if (fh == -1)
@@ -545,11 +523,7 @@ void FileRoutines_addVehicleLog(int speed)
 	// format the filename
 	//
 	FileRoutines_readDeviceInfo(&DeviceInfo);
-	#ifndef SIMULATOR_MODE
 	sprintf(filename, "/store/VehicleCounts/VC-%d%02d.bvs", RTC_YEAR, RTC_MONTH);
-	#else
-	sprintf(filename, "store/VehicleCounts/VC-%d%02d.bvs", RTC_YEAR, RTC_MONTH);
-	#endif
 
 	//
 	// open the file for writing
@@ -828,11 +802,7 @@ void FileRoutines_libraryEnumImages(int startIdx, char* pDestArray)
 	int images = 0;
 	FILEHANDLE fh = -1;
 
-#ifndef SIMULATOR_MODE
 	fh = _sys_open("/store/library.vil", OPEN_R);
-#else
-	fh = _sys_open("store/library.vil", OPEN_R);
-#endif
 	if (fh == -1)
 	{
 		printf("ERR-5: library.vil %d - %s\r\n", errno, strerror(errno));
@@ -873,11 +843,7 @@ int FileRoutines_libraryReadImage(int imageIdx, char* pDestArray)
 	int images = 0;
 	FILEHANDLE fh = -1;
 
-#ifndef SIMULATOR_MODE
 	fh = _sys_open("/store/library.vil", OPEN_R);
-#else
-	fh = _sys_open("store/library.vil", OPEN_R);
-#endif
 	if (fh == -1)
 	{
 		printf("ERR-6: library.vil %d - %s\r\n", errno, strerror(errno));
@@ -918,11 +884,7 @@ void FileRoutines_libraryEnumSequences(int startIdx,  char* pDestArray)
 	int images, sequences;
 	FILEHANDLE fh = -1;
 
-#ifndef SIMULATOR_MODE
 	fh = _sys_open("/store/library.vil", OPEN_R);
-#else
-	fh = _sys_open("store/library.vil", OPEN_R);
-#endif
 	if (fh == -1)
 	{
 		printf("ERR-7: library.vil %d - %s\r\n", errno, strerror(errno));
@@ -976,11 +938,7 @@ int FileRoutines_libraryReadSequence(int seqIdx,  char* pDestArray)
 	int images, sequences;
 	FILEHANDLE fh = -1;
 
-#ifndef SIMULATOR_MODE
 	fh = _sys_open("/store/library.vil", OPEN_R);
-#else
-	fh = _sys_open("store/library.vil", OPEN_R);
-#endif
 	if (fh == -1)
 	{
 		printf("ERR-8: library.vil %d - %s\r\n", errno, strerror(errno));
@@ -1042,12 +1000,8 @@ int FileRoutines_SaveDebugInfo(char *pData, int length)
 
 	return 0; // todo no debug info stored
 
-#ifndef SIMULATOR_MODE
 	sprintf(filename, "/store/System/RadarDebug.txt");
-#else
-	sprintf(filename, "store/System/RadarDebug.txt");
-#endif
-	
+
 	//
 	// open the file for writing
 	//

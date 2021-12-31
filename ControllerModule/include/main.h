@@ -14,29 +14,23 @@
 #include <pthread.h>
 #include "../Common/inc/uart.h"
 
-#define SERVER_PORT_NUM			1530
+#define SERVER_PORT_NUM 1530
 
 // comment the following line for smaller DOTs
 //#define LARGER_DOTS
 
-#define PWM_PERIOD  2000000
+#define PWM_PERIOD 2000000
 
 #include "FileRoutines.h"
 
-#ifndef SIMULATOR_MODE  
 #define BASE_DATA "/store"
-#else
-#define BASE_DATA "store"
-#endif
-
-
 
 extern int TestModeBitmap;
 extern int TestModeDuration;
 extern int flashDrivePresent;
 extern int DisplayFlashingCorners;
 
-extern char* CAMERA_IP_ADDR;
+extern char *CAMERA_IP_ADDR;
 
 void RTC_Start(void);
 void UpdateMemoryCardStatus(void);
@@ -46,7 +40,7 @@ void CheckMemoryCardCapacity(void);
 unsigned long long GetSecondsTimer(void);
 int ExchangeTcpData(int sockFd);
 void ExchangeUARTData(uart_ptr dev);
-void DisplaySpeed(int speedToDisplay, DeviceInfoS* pDeviceInfo);
+void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo);
 void UpdateLuxmeter(void);
 int GetLuxmeterValue(void);
 int DoAutoDimming(int force);
@@ -60,26 +54,37 @@ void displayWait(void);
 void displayRelease(void);
 int displayWaitDelay(long lTmoMs);
 
-void ChangeWifiName(const char* newName);
+void ChangeWifiName(const char *newName);
 
 typedef struct taskControlBlock
 {
-	pthread_t threadID;
-	int hostPort;
-	char hostIPAddr[50];
-	int localPort;
-	int arg1;
-	int arg2;
-	int arg3;
+   pthread_t threadID;
+   int hostPort;
+   char hostIPAddr[50];
+   int localPort;
+   int arg1;
+   int arg2;
+   int arg3;
 } TCB;
 
 void CreateMemoryTask(int localPort);
-void Directory(char* dir);
+void Directory(char *dir);
 
-#define TIMECHECK_START {static long maxDurTIMECHECK = 0; long startTIMECHECK = GetTickCount(); long currentDurTIMECHECK; int lineTIMECHECK = __LINE__; char* fnctTIMECHECK = __FUNCTION__;
-#define TIMECHECK_END currentDurTIMECHECK = GetTickCount() - startTIMECHECK; if (maxDurTIMECHECK < currentDurTIMECHECK) { printf("CHECK %s@%d: %ld\r\n", (const)fnctTIMECHECK, lineTIMECHECK, currentDurTIMECHECK); maxDurTIMECHECK = currentDurTIMECHECK;}}
-
-#define GPIO(A, B) (A*32 + B)
+#define TIMECHECK_START                     \
+   {                                        \
+      static long maxDurTIMECHECK = 0;      \
+      long startTIMECHECK = GetTickCount(); \
+      long currentDurTIMECHECK;             \
+      int lineTIMECHECK = __LINE__;         \
+      char *fnctTIMECHECK = __FUNCTION__;
+#define TIMECHECK_END                                                                           \
+   currentDurTIMECHECK = GetTickCount() - startTIMECHECK;                                       \
+   if (maxDurTIMECHECK < currentDurTIMECHECK)                                                   \
+   {                                                                                            \
+      printf("CHECK %s@%d: %ld\r\n", (const)fnctTIMECHECK, lineTIMECHECK, currentDurTIMECHECK); \
+      maxDurTIMECHECK = currentDurTIMECHECK;                                                    \
+   }                                                                                            \
+   }
 
 #undef LOGFILE_ENABLED
 

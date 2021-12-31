@@ -68,7 +68,7 @@ target_include_directories(${projectName} PRIVATE ${allIncludes})
 target_link_libraries(${projectName} dcommon dcrypto dethernet djson ${Boost_LIBRARIES} rt)
 
 # Auto copy exe after cean build
-#add_custom_command( TARGET ${projectName} 
-#                    POST_BUILD 
-#                    COMMAND rsync -avzhe ssh ${CMAKE_BINARY_DIR}/vms debian@10.0.2.6:/home/debian/testApp/vms 
-#                    )
+add_custom_command( TARGET ${projectName} 
+                    POST_BUILD 
+                    COMMAND rsync -avzhe ssh ${CMAKE_BINARY_DIR}/vms debian@10.0.2.17:/home/debian/testApp/vms 
+                    )

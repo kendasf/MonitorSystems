@@ -472,19 +472,12 @@ void* cameraTask(void* argPtr)
 	unsigned long idleCount = 0;
 
 
-#ifdef SIMULATOR_MODE
-	while(true) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));
-	} // do nothing in simulator mode
-#endif
-
 	while (hSock == -1)
 	{
 		hSock = GetUdpServerHandle(args->localPort);
 		if (hSock < 0)
 		{
-//			printf("ERROR: %s\n", strerror(errno));
-			usleep(1000*1000);
+			sleep(1);
 		}
 	}
 	

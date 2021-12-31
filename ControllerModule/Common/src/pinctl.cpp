@@ -9,7 +9,6 @@
 #include "pinctl.h"
 
 int pinctl::get(int fd) {
-#ifndef SIMULATOR_MODE  
 	int retval = -1;
 	char data = 'x';
 	if (fd > 0) {
@@ -24,14 +23,10 @@ int pinctl::get(int fd) {
     }
 	}
 	return retval;
-#else
-  return 0;
-#endif
 }
 
 void pinctl::set(int fd, int val)
 {
-#ifndef SIMULATOR_MODE  
 	char str[10];
 	if (fd > 0) {
 		int err;
@@ -40,11 +35,9 @@ void pinctl::set(int fd, int val)
 		if (err < 0)
 			printf("ERR: %s\r\n", strerror(errno));
 	}
-#endif  
 }
 
 int pinctl::open_gpio_pin(int pin, int dir) {
-#ifndef SIMULATOR_MODE  
 	int fd = -1;
 	char path[50];
 
@@ -60,13 +53,9 @@ int pinctl::open_gpio_pin(int pin, int dir) {
 		fd = open(path, O_RDONLY);
 
 	return fd;
-#else
-  return 0;
-#endif  
 }
 
 int pinctl::export_pin(int pin, int dir) {
-#ifndef SIMULATOR_MODE  
   FILE *fd = NULL;
   int direct = dir & 1; // 0 or 1 
   int up = (dir & 2) >> 1; 
@@ -111,9 +100,6 @@ int pinctl::export_pin(int pin, int dir) {
   chmod(path, (direct == 0) ? S_IWUSR | S_IWOTH | S_IWGRP : S_IRUSR | S_IRGRP | S_IROTH);
 
   return open_gpio_pin(pin, direct);
-#else
-  return 0;
-#endif
 }
 
 

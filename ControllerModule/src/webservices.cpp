@@ -224,11 +224,7 @@ webservices::response webservices::upload(const http::query& qs, const header_ma
   
   gnode::fs::unlink_sync(path + ".fl");
 
-#ifndef SIMULATOR_MODE
-  gnode::fs::write_file_sync("/store/library.vil", data);
-#else
   gnode::fs::write_file_sync("store/library.vil", data);
-#endif
 
   return response("{\"status\": \"ok\"}");
 }
@@ -341,7 +337,8 @@ webservices::response webservices::get_status(const http::query& qs, const heade
   sprintf(tmpBuffer, "%s", FIRMWARE_VERSION);
   std::string formatted_firmware(tmpBuffer);
 
-  sprintf(tmpBuffer, "%d.%01d V", (int)SupplyVoltageLevel, ((int)(SupplyVoltageLevel * 10.00)) % 10);
+  //sprintf(tmpBuffer, "%d.%01d V", (int)SupplyVoltageLevel, ((int)(SupplyVoltageLevel * 10.00)) % 10);
+  sprintf(tmpBuffer, "%0.01f V", SupplyVoltageLevel);
   std::string formatted_supply_voltage(tmpBuffer);
 
   sprintf(tmpBuffer, "%d lux", GetLuxmeterValue());

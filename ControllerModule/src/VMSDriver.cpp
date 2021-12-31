@@ -44,21 +44,19 @@ inline void busy_usleep(int usecs) {
 //
 void VMSDriver_Initialize()
 {
-#ifndef SIMULATOR_MODE
-	spi_dev = spi_ptr(new spi("/dev/spidev1.0", 0, 8, 4000000));
-
 	bufleFd = pinctl::inst().export_pin(BUFLE, 0); 
-	pinctl::inst().set(bufleFd, 1);
+	pinctl::inst().set(bufleFd, 0);
 	pwmMonitorFd = pinctl::inst().export_pin(PWM_MONITOR, 1);
-#endif
+
+	spi_dev = spi_ptr(new spi("/dev/spidev1.0", 0, 8, 4000000));
 } 
 
 void SpiSendPanel(unsigned char*data, int len)
 {
-#ifndef SIMULATOR_MODE
 	if (spi_dev)
+	{
 		spi_dev->write(data, len);
-#endif
+	}
 }
 
 //
@@ -151,7 +149,6 @@ int LogicalPanelToPhysical(DeviceInfoS *pDeviceInfo, int panelID)
 //
 int VMSDriver_UpdateFrame()
 {
-#ifndef SIMULATOR_MODE
 	int i, j;
 	DeviceInfoS deviceInfo;
 
@@ -175,7 +172,6 @@ int VMSDriver_UpdateFrame()
 	memcpy(PrevVMSBitmap, VMSBitmap, sizeof(VMSBitmap));
 
 	return 1;
-#endif
 }
 
 //
@@ -185,9 +181,11 @@ int VMSDriver_UpdateFrame()
 //
 int VMSDriver_UpdateFrameFast()
 {
-#ifndef SIMULATOR_MODE
 	int i, j;
 	DeviceInfoS deviceInfo;
+	unsigned char spi_stream[sizeof(VMSBitmap)];
+	bool rotate180 = false;
+
 	if (memcmp(PrevVMSBitmap, VMSBitmap, sizeof(VMSBitmap)) == 0)
 		return 0;
 
@@ -195,10 +193,6 @@ int VMSDriver_UpdateFrameFast()
 
 	setPwmDuty(thePWMHandle, PWM_PERIOD); // PWM_PERIOD as duty turns off LEDs
 	busy_usleep(PWM_PERIOD / 1000 + 500);
-
-	unsigned char spi_stream[sizeof(VMSBitmap)];
-
-	bool rotate180 = false;
 
 	for(j = VMS_PANELS - 1; j >= 0; j--)
 	{
@@ -228,7 +222,7 @@ int VMSDriver_UpdateFrameFast()
 	SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
 
 	memcpy(PrevVMSBitmap, VMSBitmap, sizeof(VMSBitmap));
-#endif
+
 	return 1;
 }
 
@@ -244,7 +238,6 @@ void VMSDriver_Invalidate()
 //
 void VMSDriver_Off()
 {
-#ifndef SIMULATOR_MODE
 	VMSDriver_Clear();
 		
 	VMSDriver_UpdateFrameFast();
@@ -253,7 +246,6 @@ void VMSDriver_Off()
 	SetDisplayLE();
 
 	busy_usleep(10);	
-#endif
 }
 
 void VMSDriver_GetDimensions(int panelsConfig, int& width, int& height) {
@@ -411,7 +403,6 @@ void VMSDriver_GetDimensions(int panelsConfig, int& width, int& height) {
 //
 void VMSDriver_WriteSpeed(int x, int y, int panelsConfig, int speed, int font)
 {
-#ifndef SIMULATOR_MODE
 	int i;
 	int width = 0, height = 0;
 	BitmapS bitmap;
@@ -645,7 +636,6 @@ void VMSDriver_WriteSpeed(int x, int y, int panelsConfig, int speed, int font)
 	}
 
 	VMSDriver_RenderBitmap(0, &bitmap);
-#endif
 }
 
 //
@@ -822,7 +812,6 @@ void VMSDriver_WriteSmallChar(int xPos, int yPos, int width, int height, BitmapS
 //
 void SetDisplayLE()
 {
-#ifndef SIMULATOR_MODE
 	busy_usleep(30);
 	pinctl::inst().set(bufleFd, 0);
 	busy_usleep(30);
@@ -830,7 +819,6 @@ void SetDisplayLE()
 
 	busy_usleep(450); // .5 ms
 	setPwmDuty(thePWMHandle, pwmDuty);
-#endif
 }
 
 //
@@ -1273,7 +1261,6 @@ void RunChristmasSequence() {
 //
 void VMSDriver_RunStartSequence()
 {
-#ifndef SIMULATOR_MODE
 	int i, j, k;
 	for(i = 0; i < VMS_WIDTH + VMS_HEIGHT; i++)
 	{
@@ -1306,6 +1293,5 @@ void VMSDriver_RunStartSequence()
 
 		busy_usleep(125000);
 	}
-#endif
 	//RunChristmasSequence();
 }

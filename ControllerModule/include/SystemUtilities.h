@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <time.h>
 
+#define JOURNALD_LEVEL "<5>"
+
 #define fdelete unlink
 
 #define _sys_open open
