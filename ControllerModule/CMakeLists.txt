@@ -48,6 +48,7 @@ set(appSource ${appSource}
     ${CMAKE_SOURCE_DIR}/src/main.cpp
     ${CMAKE_SOURCE_DIR}/src/radar.cpp
     ${CMAKE_SOURCE_DIR}/src/SystemUtilities.cpp
+    ${CMAKE_SOURCE_DIR}/src/uSD_flash_monitor.cpp
     ${CMAKE_SOURCE_DIR}/src/VMSDriver.cpp
     ${CMAKE_SOURCE_DIR}/src/webservices.cpp
 )
