@@ -31,7 +31,7 @@ void VMSDriver_GetDimensions(int panelsConfig, int& width, int& height);
 void VMSDriver_SetPixel(int x, int y);
 void VMSDriver_ClearPixel(int x, int y);
 
-void VMSDriver_Clear(void);
+void VMSDriver_Clear(bool doUpdate);
 void VMSDriver_White(unsigned char val);
 int VMSDriver_Test(void);
 

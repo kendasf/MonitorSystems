@@ -13,19 +13,21 @@
 #include <chrono>
 #include <cstdlib>
 
-unsigned char VMSBitmap[(VMS_PANELS + 3) * VMS_WIDTH * VMS_HEIGHT / 8];
-unsigned char PrevVMSBitmap[(VMS_PANELS + 3) * VMS_WIDTH * VMS_HEIGHT / 8] = {0xFF};
+#define BUFLE GPIO(3, 16)
+#define BUFOE GPIO(1, 19)
+
+#define PWM_MONITOR GPIO(1,28)
+
+#define bitmapSize ( (VMS_PANELS + 3) * VMS_WIDTH * VMS_HEIGHT / 8 )
+
+unsigned char VMSBitmap[bitmapSize] = {0};
+unsigned char PrevVMSBitmap[bitmapSize] = {0xF};
 
 static spi_ptr spi_dev;
 static int bufleFd = -1;
 
 extern pwmHandle thePWMHandle;
 extern unsigned long pwmDuty;
-
-#define BUFLE GPIO(3, 16)
-#define BUFOE GPIO(1, 19)
-
-#define PWM_MONITOR GPIO(1,28)
 
 static int pwmMonitorFd;
 
@@ -49,6 +51,8 @@ void VMSDriver_Initialize()
 	pwmMonitorFd = pinctl::inst().export_pin(PWM_MONITOR, 1);
 
 	spi_dev = spi_ptr(new spi("/dev/spidev1.0", 0, 8, 4000000));
+
+	VMSDriver_Clear(true);
 } 
 
 void SpiSendPanel(unsigned char*data, int len)
@@ -238,9 +242,9 @@ void VMSDriver_Invalidate()
 //
 void VMSDriver_Off()
 {
-	VMSDriver_Clear();
+	VMSDriver_Clear(true);
 		
-	VMSDriver_UpdateFrameFast();
+	// VMSDriver_UpdateFrameFast();
 
 	// set LE signal
 	SetDisplayLE();
@@ -674,14 +678,21 @@ void VMSDriver_ClearPixel(int x, int y)
 //
 // Clears the display.
 //
-void VMSDriver_Clear()
+void VMSDriver_Clear(bool doUpdate)
 {
-	memset(VMSBitmap, 0, VMS_PANELS * VMS_WIDTH * VMS_HEIGHT / 8);
+	unsigned char blankOut[bitmapSize] = {0};
+
+	memset(VMSBitmap, 0, bitmapSize);
+
+	if(true == doUpdate)
+	{
+		SpiSendPanel(blankOut, sizeof(blankOut) );
+	}
 }
 
 void VMSDriver_White(unsigned char val)
 {
-	memset(VMSBitmap, val, VMS_PANELS * VMS_WIDTH * VMS_HEIGHT / 8);
+	memset(VMSBitmap, val, bitmapSize);
 }
 
 //
@@ -691,7 +702,7 @@ void VMSDriver_White(unsigned char val)
 //
 int VMSDriver_Test()
 {
-	VMSDriver_Clear();
+	VMSDriver_Clear(false);
 
 	return 1;
 }
@@ -709,7 +720,7 @@ void VMSDriver_TestMode(int imageID)
 	}
 	else
 	{
-		VMSDriver_Clear();
+		VMSDriver_Clear(false);
 		VMSDriver_RenderBitmap(imageID - 1, NULL);
 	}
 
@@ -1194,7 +1205,7 @@ void VMSDriver_RenderBitmapToPanels(int bmpWidth, int bmpHeight, int firstPanel,
 }
 
 void RunChristmasSequence() {
-	VMSDriver_Clear();
+	VMSDriver_Clear(false);
 	BitmapS bmp;
 	memset(bmp.bitmapData, 0, sizeof(bmp.bitmapData));
 
@@ -1203,7 +1214,7 @@ void RunChristmasSequence() {
 
 	while(true) {
 		busy_usleep(75000);
-		VMSDriver_Clear();
+		VMSDriver_Clear(false);
 
 		for(int y = 15; y > 0 ; y--) {
 			for(int x = 0; x < 20; x++) {
@@ -1264,7 +1275,7 @@ void VMSDriver_RunStartSequence()
 	int i, j, k;
 	for(i = 0; i < VMS_WIDTH + VMS_HEIGHT; i++)
 	{
-		VMSDriver_Clear();
+		VMSDriver_Clear(false);
 
 		if (i < (VMS_WIDTH + VMS_HEIGHT - 1))
 		{

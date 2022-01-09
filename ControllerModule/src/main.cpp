@@ -250,32 +250,32 @@ char *RecvMessages(int hSock, long lTmoMs)
 void TrapCtlC(int sigval)
 {
    printf("TrapCtlC\nClearing Display\n");
-   VMSDriver_Clear();
-   VMSDriver_UpdateFrame();
+   VMSDriver_Clear(true);
+   //VMSDriver_UpdateFrame();
    exit(sigval);
 }
 
 void TrapKill6(int sigval)
 {
    printf("TrapKill6\nClearing Display\n");
-   VMSDriver_Clear();
-   VMSDriver_UpdateFrame();
+   VMSDriver_Clear(true);
+   //VMSDriver_UpdateFrame();
    exit(sigval);
 }
 
 void TrapKill9(int sigval)
 {
    printf("TrapKill9\nClearing Display\n");
-   VMSDriver_Clear();
-   VMSDriver_UpdateFrame();
+   VMSDriver_Clear(true);
+   //VMSDriver_UpdateFrame();
    exit(sigval);
 }
 
 void TrapKill15(int sigval)
 {
    printf("TrapKill15\nClearing Display\n");
-   VMSDriver_Clear();
-   VMSDriver_UpdateFrame();
+   VMSDriver_Clear(true);
+   //VMSDriver_UpdateFrame();
    exit(sigval);
 }
 
@@ -377,12 +377,7 @@ int main(int argc, char *argv[])
    // VMS Driver Init here to clear screen before PWM enabled
    initPWMDriver(); /* This sets up the structures to drive the PWM */
 
-   
-   //VMSDriver_Clear();
-   //VMSDriver_UpdateFrame();
    VMSDriver_Initialize();
-   VMSDriver_Clear();
-   VMSDriver_UpdateFrame();
 
    // init PWM
    PWMDutyCycle = 10;
@@ -416,79 +411,8 @@ int main(int argc, char *argv[])
    }
 
    /* Mount the external Flash */
+   uSD_flash_monitor_init();
 
-   char *diskList = SysCmd("lsblk | grep mmcblk0");   /* External flash is on MMC0 */ 
-   if (diskList)  
-   {
-      free(diskList);
-      /* mount -t fsType device dir */
-      SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
-      SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
-      SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
-      SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
-
-      char *checkExtResp = SysCmd("ls /mnt/ext/");
-      if (checkExtResp && strstr(checkExtResp, "Photo"))
-      {
-         printf("External flash has Photo dir\n");
-         free(checkExtResp);
-         HaveExternalFlash = true;
-
-         SysCmd("mv /store/Photo /store/PhotoInt");      /* Save our internal version  */
-         SysCmd("ln -s /mnt/ext/Photo/ /store/Photo");   /* map to external flash drive */
-      }
-      else
-      {
-         free(checkExtResp);
-      }
-
-      checkExtResp = SysCmd("ls /mnt/ext/");
-      if (checkExtResp && strstr(checkExtResp, "VehicleCounts"))
-      {
-         printf("External flash has VehicleCounts dir\n");
-         
-         SysCmd("mv /store/VehicleCounts /store/VehicleCountsInt");        /* Keep internal versions */
-         SysCmd("ln -s /mnt/ext/VehicleCounts/ /store/VehicleCounts");     /* Map to external Flash disk */
-
-         free(checkExtResp);
-      }
-
-
-      if (CanWriteMemoryCard() != 0)  /* USB must be present for logging */
-      {
-         int flashDriveRef = isFlashDrivePresent();
-         char driveDes[10] = "/dev/sd_1";
-         driveDes[7] = 'a' + (flashDriveRef - 1);
-         printf("Mounting %s for debug\r\n", driveDes);
-         MountDrive(driveDes, "/mnt/data");
-         fpErrLog = NULL;
-      }
-      else
-      {
-         printf("No USB flash disk ready for debug logging\r\n");
-      }
-
-      /*SetTime();		Not needed anymore - handled by system script */
-
-      SysCmd("chmod 777 /store/Photo");
-      SysCmd("chmod 777 /store/PhotoInt");
-      SysCmd("chmod 777 /mnt/ext/Photo");
-
-      SysCmd("chmod 777 /store/VehicleCounts");
-      SysCmd("chmod 777 /store/VehicleCountsInt");
-      SysCmd("chmod 777 /mnt/ext/VehicleCounts");
-   }
-   else
-   {
-      printf("No SD card present, Please insert SD card for proper operation, non-save mode selected");
-
-      /* Use internal Flash location ------ Nah
-      SysCmd("rm /store/Photo");
-      SysCmd("rm /store/VehicleCounts");
-      SysCmd("mv /store/PhotoInt /store/Photo");
-      SysCmd("mv /store/VehicleCountsInt /store/VehicleCounts");
-      */
-   }
 
    /* The following line is a dirty hack. Why, you ask? Because some idiot who wrote vmsd which starts vms process did not give
 // vms process proper stdin, so its filedescription "0" is left unused. And when the first socket is created, it gets filedesc of zero.
@@ -868,8 +792,8 @@ voltageTooLow = 0;
             fclose(fpErrLog);
             fpErrLog = NULL;
          }
-         VMSDriver_Clear();
-         VMSDriver_UpdateFrame();
+         VMSDriver_Clear(true);
+         // VMSDriver_UpdateFrame();
          resp = SysCmd("shutdown -h now");
          if (resp != NULL)
          {
@@ -1152,7 +1076,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    //
    if (refreshRequired)
    {
-      VMSDriver_Clear();
+      VMSDriver_Clear(false);
 
       PrevBcIdx = bcIdx;
 
@@ -1205,7 +1129,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
          VMSDriver_GetDimensions(pDeviceInfo->panelsConfiguration, width, height);
          MakeCornerBitmap(&corners, width, height);
 
-         VMSDriver_Clear();
+         VMSDriver_Clear(false);
 
          if ((GetTickCount() % 1000) < 500)
             VMSDriver_RenderBitmap(1, &corners);

@@ -57,42 +57,174 @@ int isFlashDrivePresent(void)
 
 void SetTime();
 
+void uSD_flash_monitor_init(void)
+{
+   char *checkExtResp = NULL;
+   char *diskList = SysCmd("lsblk | grep mmcblk0");   /* External flash is on MMC0 */ 
+   if (diskList)  
+   {
+      free(diskList);
+      /* mount -t fsType device dir */
+      SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
+      SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
+      SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
+      checkExtResp = SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
+
+      if( NULL == checkExtResp )  /* Null response means that the mount command worked */
+      {
+         HaveExternalFlash = true;  // uSD card is present with goot directory structure
+      }
+      else
+      {
+         HaveExternalFlash = false;
+         return;
+      }
+      free(checkExtResp);
+
+      checkExtResp = SysCmd("ls /mnt/ext/");
+      if (checkExtResp && strstr(checkExtResp, "Photo"))
+      {
+         printf("External flash has Photo dir\n");
+      }  
+      else  // uSD is present but bad structure
+      {
+         SysCmd("mkdir -p /mnt/ext/Photo");
+      }
+      free(checkExtResp);
+      // Update uSD with Photo Directory information
+      checkExtResp = SysCmd("mv /store/Photo /store/PhotoInt");      /* Rename internal version  */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp = SysCmd("ln -sf /mnt/ext/Photo/ /store/Photo");  /* map Photo to external flash drive */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp = SysCmd("mv /store/PhotoInt/ /store/Photo/");    /* Copy internal version to uSD card */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp = SysCmd("rmdir /store/PhotoInt");                /* Delete internal store to clean up*/ 
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+      checkExtResp = SysCmd("ls /mnt/ext/");
+      if (checkExtResp && strstr(checkExtResp, "VehicleCounts"))
+      {
+         printf("External flash has VehicleCounts dir\n");
+      }
+      else
+      {
+         SysCmd("mkdir -p /mnt/ext/VehicleCounts");
+      }
+      free(checkExtResp);
+      checkExtResp = SysCmd("mv /store/VehicleCounts /store/VehicleCountsInt");        /* Keep internal versions */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp = SysCmd("ln -s /mnt/ext/VehicleCounts/ /store/VehicleCounts");     /* Map to external Flash disk */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp = SysCmd("mv /store/VehicleCountsInt /mnt/ext/VehicleCounts");
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      checkExtResp =SysCmd("rmdir /store/VehicleCountsInt");
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+
+      if (CanWriteMemoryCard() != 0)  /* USB must be present for logging */
+      {
+         int flashDriveRef = isFlashDrivePresent();
+         char driveDes[10] = "/dev/sd_1";
+         driveDes[7] = 'a' + (flashDriveRef - 1);
+         printf("Mounting %s for debug\r\n", driveDes);
+         MountDrive(driveDes, "/mnt/data");
+      }
+      else
+      {
+         printf("No USB flash disk ready for debug logging\r\n");
+      }
+
+      SysCmd("chmod 777 /store/Photo");
+      SysCmd("chmod 777 /store/PhotoInt");
+      SysCmd("chmod 777 /mnt/ext/Photo");
+
+      SysCmd("chmod 777 /store/VehicleCounts");
+      SysCmd("chmod 777 /store/VehicleCountsInt");
+      SysCmd("chmod 777 /mnt/ext/VehicleCounts");
+   }
+   else
+   {
+      printf("No SD card present, Please insert SD card for proper operation, non-save mode selected");
+
+      /* Use internal Flash location */
+      SysCmd("rm /store/Photo");
+      SysCmd("rm /store/VehicleCounts");
+      SysCmd("mv /store/PhotoInt /store/Photo");
+      SysCmd("mv /store/VehicleCountsInt /store/VehicleCounts");
+   }
+
+}
+
+
 void *MemoryMonTask(void *argPtr)
 {
-   unsigned long tickCnt = 0;
+   bool copyComplete = false;
+   bool driveWasPresent = false;
    unsigned long long flashDriveCheckTimer = GetTickCount(); // check every 30 seconds
 
-   CheckMemoryCard();
+   CheckMemoryCard();  // Why??
 
    flashDrivePresent = isFlashDrivePresent();
 
    while (1)
    {
       sleep(1);
-      tickCnt++;
-      if (tickCnt > 60 * 60 * 6) // Set time every 6 hours?????
-      {
-         //SetTime();		// Not sure why this is done, time is not handled by OS tools
-      }
+
+      if( false == HaveExternalFlash)
+         uSD_flash_monitor_init(); // Check to see if uSD card has been inserted
 
       if ((flashDriveCheckTimer > 0) && (flashDriveCheckTimer < GetTickCount()))
       {
          flashDriveCheckTimer = GetTickCount() + 10000; // check every 10 seconds
-         if ((flashDrivePresent == 0) && (flashDrivePresent = isFlashDrivePresent()))
+         flashDrivePresent = isFlashDrivePresent();   // 0, 1, 2
+         if ( (flashDrivePresent > 0) && (false == copyComplete) )
          {
             char *resp;
             char driveDes[10] = "/dev/sd_1";
             int validKey = 0;
+            driveWasPresent = true;
 
             driveDes[7] = 'a' + (flashDrivePresent - 1);
-            printf("USB Flash Drive %d has been inserted\r\n", flashDrivePresent);
+            printf("USB Flash Drive %s has been inserted\r\n", driveDes);
             displayWait(); // Wait for Display Control
 
             VMSDriver_Off();
             MountDrive(driveDes, "/mnt/data");
 
             // Check for download key
-            resp = SysCmd("/root/bin/diffFiles /mnt/data/vms_download.key /root/vms_download.key");
+            resp = SysCmd("/root/bin/diffFiles /root/vms_download.key /mnt/data/vms_download.key");
             if (resp != NULL)
             {
                if (atoi(resp) == 1)
@@ -119,6 +251,8 @@ void *MemoryMonTask(void *argPtr)
                printf("Directory move complete, syncing filesystem for removal\n");
                Sync();
 
+               copyComplete = true;
+
                sleep(2);
                DisplayFlashingCorners--;
             }
@@ -126,6 +260,34 @@ void *MemoryMonTask(void *argPtr)
             {
                int i;
                printf("No download key found\n");
+            }
+
+            resp = SysCmd("/root/bin/diffFiles /root/vms_update_rsa.key /mnt/data/vms_update_rsa.key");
+            if (resp != NULL)
+            {
+               if (atoi(resp) == 1)
+                  validKey = 1;
+               free(resp);
+               resp = NULL;
+            }
+
+            if( 1 == validKey)
+            {
+               resp = SysCmd("ls /mnt/data/update.vac");             
+               if( NULL != resp )   /* An update file was found */
+               {
+                  free(resp);
+                  SysCmd("mv /root/update.vac /root/update.vac.last");
+                  SysCmd("cp /mnt/data/update.vac /root/update.vac");
+
+                  copyComplete = true;
+                  
+                  if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
+                  {
+                     printf("Configuration Updated\r\n");
+                     unlink("/root/update.vac");
+                  }
+               }
             }
 
             resp = SysCmd("umount /mnt/data");
@@ -139,9 +301,11 @@ void *MemoryMonTask(void *argPtr)
             VMSDriver_Off();
             displayRelease(); // Release Display Control
          }
-         else if ((flashDrivePresent != 0) && (isFlashDrivePresent() == 0))
+         else if ( 0 == flashDrivePresent && true == driveWasPresent)   // Change state
          {
             flashDrivePresent = 0;
+            copyComplete = false;
+            driveWasPresent = false;
             printf("Flash Drive has been removed\r\n");
          }
       }
