@@ -47,12 +47,12 @@ inline void busy_usleep(int usecs) {
 void VMSDriver_Initialize()
 {
 	bufleFd = pinctl::inst().export_pin(BUFLE, 0); 
-	pinctl::inst().set(bufleFd, 0);
+	pinctl::inst().set(bufleFd, 1);
 	pwmMonitorFd = pinctl::inst().export_pin(PWM_MONITOR, 1);
 
 	spi_dev = spi_ptr(new spi("/dev/spidev1.0", 0, 8, 4000000));
 
-	VMSDriver_Clear(true);
+	VMSDriver_Clear(true);		
 } 
 
 void SpiSendPanel(unsigned char*data, int len)
@@ -687,6 +687,8 @@ void VMSDriver_Clear(bool doUpdate)
 	if(true == doUpdate)
 	{
 		SpiSendPanel(blankOut, sizeof(blankOut) );
+
+		SetDisplayLE(); /* Load into latch */ 
 	}
 }
 

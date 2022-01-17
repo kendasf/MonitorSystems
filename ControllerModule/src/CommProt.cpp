@@ -1161,8 +1161,8 @@ void CommProt_processTIM(char *pData, long sentenceNumber, long dataChannel)
 	}
 	second = atoi(pToken);
 
-	sprintf(params, "hwclock --set -f /dev/rtc1 --date=\"%d-%02d-%02d %02d:%02d:%02d\"", 
-			year, month, day, hour, minute, second);
+	//sprintf(params, "hwclock --set -f /dev/rtc1 --date=\"%d-%02d-%02d %02d:%02d:%02d\"", year, month, day, hour, minute, second);
+	sprintf(params, "sudo timedatectl set-time \"%d-%02d-%02d %02d:%02d:%02d\" ", year, month, day, hour, minute, second);
 	// add log
 	FileRoutines_addLog(LOG_CHANGE_TIME, params);
 
@@ -1173,9 +1173,11 @@ void CommProt_processTIM(char *pData, long sentenceNumber, long dataChannel)
 	if (resp != NULL) printf("%s\r\n", resp);
 	if (resp != NULL) free(resp);
 
+	/*
 	resp = SysCmd("hwclock -s -f /dev/rtc1"); // Updates OS from RTC
 	if (resp != NULL) printf("%s\r\n", resp);
 	if (resp != NULL) free(resp);
+	*/
 
 	setCameraTime((char*) CAMERA_IP_ADDR);
 

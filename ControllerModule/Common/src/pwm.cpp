@@ -123,13 +123,34 @@ static int createPwmEntry(int pwmPin, unsigned long period, int polarity)
 
 void initPWMDriver( void )
 {
-	char* response = SysCmd("cat /sys/class/pwm/pwmchip0/npwm");
-	pwmCount = atoi(response);
+	char cmd[80] = {0};
+	char* resp;
+
+	resp = SysCmd("echo BB-PWM1 > /sys/devices/platform/bone_capemgr/slots");
+	if (resp != NULL)
+	{
+		printf("%s", resp);
+		free(resp);
+	}
+
+	resp = SysCmd("cat /sys/class/pwm/pwmchip0/npwm");
+	if( resp != NULL)
+	{
+		pwmCount = atoi(resp);
+		free(resp);
+	}
 
 	if( pwmCount > 0 )
 	{
 		pwmCtl = (pwmHandle)malloc(sizeof(struct pwm_control_block) * pwmCount);
 		pwmAvailable = 1;
+
+		for( int i = 0; i < pwmCount; i++)
+		{
+			sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", i);					/* Add PWM channel */
+			resp = SysCmd(cmd);
+			if( resp != NULL) free(resp);
+		}
 	}
 	else
 	{
@@ -160,14 +181,16 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 	else if( pwmPin < pwmCount )
 	{
 		index = createPwmEntry(pwmPin, period, polarity);
-		
-		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmPin);						/* Disable Access */
+
+		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmPin);				/* Remove PWM 0  */
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);
 
-		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", pwmPin);						/* Request Access */
+		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", pwmPin);					/* Add PWM 0 */
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);
+
+
 
 		if( 0 != polarity )
 		{

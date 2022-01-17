@@ -19,15 +19,12 @@
 #include "../CryptLibs/md5.h"
 #include "FileRoutines.h"
 #include "CommProt.h"
-#include "FileRoutines.h"
 #include "radar.h"
 #include "cameraFuncts.h"
 #include <sys/types.h>
 #include <dirent.h>
 
 #include "SystemUtilities.h"
-#include "cameraFuncts.h"
-#include "FileRoutines.h"
 
 #include <deque>
 #include <thread>
@@ -833,8 +830,9 @@ webservices::response webservices::change_param(const http::query& qs, const hea
     int second = std::stoi(value_it->second.substr(12, 2));
 
     char params[128];
-    sprintf(params, "hwclock --set -f /dev/rtc1 --date=\"%d-%02d-%02d %02d:%02d:%02d\"", 
-      year, month, day, hour, minute, second);
+    // sprintf(params, "hwclock --set -f /dev/rtc1 --date=\"%d-%02d-%02d %02d:%02d:%02d\"", year, month, day, hour, minute, second);
+
+    sprintf(params, "sudo timedatectl set-time \"%d-%02d-%02d %02d:%02d:%02d\" ", year, month, day, hour, minute, second);
     // add log
     FileRoutines_addLog(LOG_CHANGE_TIME, params);
 
@@ -847,11 +845,13 @@ webservices::response webservices::change_param(const http::query& qs, const hea
     if (resp != NULL) printf("Change time response: %s\r\n", resp);
     if (resp != NULL) free(resp);
 
+    /*
     resp = SysCmd("hwclock -s -f /dev/rtc1"); // Updates OS from RTC
     if (resp != NULL) printf("Change time 2 response: %s\r\n", resp);
     if (resp != NULL) free(resp);
+    */
 
-    setCameraTime((char*) CAMERA_IP_ADDR);
+    //setCameraTime((char*) CAMERA_IP_ADDR);
 
     update_auth_expiry(qs, headers, client_ip);
 

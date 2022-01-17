@@ -375,16 +375,18 @@ int main(int argc, char *argv[])
    //SysCmd("/root/init_peripherals.sh");  // Handle by systemd now
 
    // VMS Driver Init here to clear screen before PWM enabled
+   VMSDriver_Initialize();
+   
    initPWMDriver(); /* This sets up the structures to drive the PWM */
 
-   VMSDriver_Initialize();
-
    // init PWM
-   PWMDutyCycle = 10;
+   PWMDutyCycle = 0;
    pwmDuty = calcPwmDuty(PWMDutyCycle);
    thePWMHandle = createPWM(0, pwmPeriod, 0);
    setPwmDuty(thePWMHandle, pwmDuty);
    startPwm(thePWMHandle);
+
+   
 
    printf(JOURNALD_LEVEL "Setting ADC 4 for Lux Meter\n");
    adc::inst().enable_channel(4); // luxmeter
@@ -1434,14 +1436,14 @@ void readLux(void)
       {
          m_point[0] = rawLvl;
          minF = rawLvl;
-         printf("Min found %d\t Max Found %d\n", minF, maxF);
+         //printf("Min found %d\t Max Found %d\n", minF, maxF);
       }
 
       if( rawLvl > maxF )
       {
          m_point[1] = rawLvl;
          maxF = rawLvl;
-         printf("Min found %d\t Max Found %d\n", minF, maxF);
+         //printf("Min found %d\t Max Found %d\n", minF, maxF);
       }
       
       LuxMeterLPF = (LuxMeterLPF * 0.995) + (lux * 0.005);
