@@ -505,10 +505,10 @@ void FileRoutines_addVehicleLog(int speed)
 	char entryData[9];
 	FILEHANDLE fh = -1;
 
-	if (!CanWriteMemoryCard())
-	{
-		return;
-	}
+	// if (!CanWriteMemoryCard())
+	// {
+	// 	return;
+	// }
 
 	//
 	// check that the value is not too small

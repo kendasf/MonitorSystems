@@ -10,6 +10,8 @@
 #include <sys/time.h>  // gettimeofday
 #include <sys/times.h> // gettimeofday
 #include <stdarg.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "SystemUtilities.h"
 #include "../Common/inc/timer.h"
 #include "VMSDriver.h"
@@ -25,7 +27,9 @@ unsigned char CardType;
 int MemoryCardTotalSpace = 0;
 int MemoryCardFreeSpace = 0;
 
+extern int fileDirty;
 extern bool HaveExternalFlash;
+
 
 int isFlashDrivePresent(void)
 {
@@ -57,29 +61,41 @@ int isFlashDrivePresent(void)
 
 void SetTime();
 
+unsigned char fsChanged = 0;
+unsigned char fsInternal = 0;
 void uSD_flash_monitor_init(void)
 {
+   unsigned char fsReady = 0;
    char *checkExtResp = NULL;
    char *diskList = SysCmd("lsblk | grep mmcblk0");   /* External flash is on MMC0 */ 
-   if (diskList)  
+   if (NULL != diskList )
    {
       free(diskList);
-      /* mount -t fsType device dir */
-      SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
-      SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
-      SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
-      checkExtResp = SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
 
-      if( NULL == checkExtResp )  /* Null response means that the mount command worked */
+      if( false == HaveExternalFlash )
       {
-         HaveExternalFlash = true;  // uSD card is present with goot directory structure
+         /* mount -t fsType device dir */
+         SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
+         SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
+         SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
+         checkExtResp = SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
+      
+         if( NULL == checkExtResp )  /* Null response means that the mount command worked */
+         {
+            HaveExternalFlash = true;  // uSD card is present with goot directory structure
+         }
+         else
+         {
+            HaveExternalFlash = false;
+            return;
+         }
+         free(checkExtResp);
       }
       else
       {
-         HaveExternalFlash = false;
          return;
       }
-      free(checkExtResp);
+      
 
       checkExtResp = SysCmd("ls /mnt/ext/");
       if (checkExtResp && strstr(checkExtResp, "Photo"))
@@ -91,26 +107,23 @@ void uSD_flash_monitor_init(void)
          SysCmd("mkdir -p /mnt/ext/Photo");
       }
       free(checkExtResp);
-      // Update uSD with Photo Directory information
-      checkExtResp = SysCmd("mv /store/Photo /store/PhotoInt");      /* Rename internal version  */
+
+      checkExtResp = SysCmd("rm -r /store/Photo");  /* delete existing link */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
          free(checkExtResp);
       }
+
+      // Update uSD with Photo Directory information
       checkExtResp = SysCmd("ln -sf /mnt/ext/Photo/ /store/Photo");  /* map Photo to external flash drive */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
          free(checkExtResp);
       }
-      checkExtResp = SysCmd("mv /store/PhotoInt/ /store/Photo/");    /* Copy internal version to uSD card */
-      if( checkExtResp )
-      {
-         printf("Error - %s\n", checkExtResp);
-         free(checkExtResp);
-      }
-      checkExtResp = SysCmd("rmdir /store/PhotoInt");                /* Delete internal store to clean up*/ 
+      
+      checkExtResp = SysCmd("mv /store/PhotoInt/* /store/Photo/");    /* Move internal data to uSD card */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
@@ -127,31 +140,27 @@ void uSD_flash_monitor_init(void)
          SysCmd("mkdir -p /mnt/ext/VehicleCounts");
       }
       free(checkExtResp);
-      checkExtResp = SysCmd("mv /store/VehicleCounts /store/VehicleCountsInt");        /* Keep internal versions */
-      if( checkExtResp )
-      {
-         printf("Error - %s\n", checkExtResp);
-         free(checkExtResp);
-      }
-      checkExtResp = SysCmd("ln -s /mnt/ext/VehicleCounts/ /store/VehicleCounts");     /* Map to external Flash disk */
-      if( checkExtResp )
-      {
-         printf("Error - %s\n", checkExtResp);
-         free(checkExtResp);
-      }
-      checkExtResp = SysCmd("mv /store/VehicleCountsInt /mnt/ext/VehicleCounts");
-      if( checkExtResp )
-      {
-         printf("Error - %s\n", checkExtResp);
-         free(checkExtResp);
-      }
-      checkExtResp =SysCmd("rmdir /store/VehicleCountsInt");
+
+      checkExtResp = SysCmd("rm -r /store/VehicleCounts");  /* delete existing link */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
          free(checkExtResp);
       }
 
+      checkExtResp = SysCmd("ln -sf /mnt/ext/VehicleCounts/ /store/VehicleCounts");     /* Map to external Flash disk */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+      
+      checkExtResp = SysCmd("mv /store/VehicleCountsInt/* /mnt/ext/VehicleCounts/");      /* Move internal data to uSD card */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
 
       if (CanWriteMemoryCard() != 0)  /* USB must be present for logging */
       {
@@ -166,25 +175,60 @@ void uSD_flash_monitor_init(void)
          printf("No USB flash disk ready for debug logging\r\n");
       }
 
+      fsChanged = 1;
+      fsInternal = 0;
+   }
+   else if( NULL == diskList && 0 == fsInternal  )
+   {
+      printf("No SD card present, Please insert SD card for proper operation, non-save mode selected\n");
+
+      checkExtResp = SysCmd("rm -r /store/Photo");  /* delete existing link */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+      checkExtResp = SysCmd("ln -s /store/PhotoInt /store/Photo");  /* map Photo to internal flash drive */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+      checkExtResp = SysCmd("rm -r /store/VehicleCounts");  /* delete existing link */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+      checkExtResp = SysCmd("ln -sf /store/VehicleCountsInt /store/VehicleCounts");  /* map Photo to internal flash drive */
+      if( checkExtResp )
+      {
+         printf("Error - %s\n", checkExtResp);
+         free(checkExtResp);
+      }
+
+      fsChanged = 1;
+      fsInternal = 1;
+   }
+
+   if( 1 == fsChanged )
+   {
       SysCmd("chmod 777 /store/Photo");
       SysCmd("chmod 777 /store/PhotoInt");
-      SysCmd("chmod 777 /mnt/ext/Photo");
-
       SysCmd("chmod 777 /store/VehicleCounts");
       SysCmd("chmod 777 /store/VehicleCountsInt");
-      SysCmd("chmod 777 /mnt/ext/VehicleCounts");
-   }
-   else
-   {
-      printf("No SD card present, Please insert SD card for proper operation, non-save mode selected");
 
-      /* Use internal Flash location */
-      SysCmd("rm /store/Photo");
-      SysCmd("rm /store/VehicleCounts");
-      SysCmd("mv /store/PhotoInt /store/Photo");
-      SysCmd("mv /store/VehicleCountsInt /store/VehicleCounts");
-   }
+      if( true == HaveExternalFlash)
+      {
+         SysCmd("chmod 777 /mnt/ext/Photo");
+         SysCmd("chmod 777 /mnt/ext/VehicleCounts");
+      }
 
+      fsChanged = 0;
+   }
 }
 
 
@@ -202,8 +246,7 @@ void *MemoryMonTask(void *argPtr)
    {
       sleep(1);
 
-      if( false == HaveExternalFlash)
-         uSD_flash_monitor_init(); // Check to see if uSD card has been inserted
+      uSD_flash_monitor_init(); // Check to see if uSD card has been inserted
 
       if ((flashDriveCheckTimer > 0) && (flashDriveCheckTimer < GetTickCount()))
       {
@@ -277,15 +320,15 @@ void *MemoryMonTask(void *argPtr)
                if( NULL != resp )   /* An update file was found */
                {
                   free(resp);
-                  SysCmd("mv /root/update.vac /root/update.vac.last");
                   SysCmd("cp /mnt/data/update.vac /root/update.vac");
-
+                  
                   copyComplete = true;
                   
                   if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
                   {
                      printf("Configuration Updated\r\n");
                      unlink("/root/update.vac");
+                     fileDirty = 1;  // Flag to force system to reset device info
                   }
                }
             }

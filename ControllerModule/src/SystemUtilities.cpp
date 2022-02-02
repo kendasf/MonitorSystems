@@ -126,7 +126,7 @@ void Directory(char *dirData)
         {
                 while ((dir = readdir(d)) != NULL)
                 {
-                        if (dir->d_type == 8)
+                        if (dir->d_type == DT_REG)      /* If Regular file  */
                         {
                                 printf("%s\n", dir->d_name);
                         }
@@ -147,7 +147,7 @@ void MoveFile(char *srcDir, char *destDir, char *mask)
                 mkdir(destDir, DEFFILEMODE);
                 while ((dir = readdir(d)) != NULL)
                 {
-                        if ((dir->d_type == 8) && (strstr(dir->d_name, mask) != NULL))
+                        if ((dir->d_type == DT_REG) && (strstr(dir->d_name, mask) != NULL))
                         {
                                 char *resp;
                                 char src[BUFF_MAX_SIZE] = {0};

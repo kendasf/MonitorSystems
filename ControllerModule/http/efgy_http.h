@@ -264,11 +264,11 @@ public:
    */
   ~session(void) {
     status = stShutdown;
-    try {
-      socket.shutdown(base::socket::shutdown_both);
-    }
-    catch (std::system_error & e) {
-    }
+    // try {
+    //   socket.shutdown(base::socket::shutdown_both);
+    // }
+    // catch (std::system_error & e) {
+    // }
 
     try {
       socket.close();
@@ -313,6 +313,7 @@ public:
    * \param[in] body   The response body to send back to the client.
    */
   void reply(int status, const std::string &header, const std::string &body) {
+    
     std::shared_ptr<std::string> reply = std::shared_ptr<std::string>(new std::string());
     reply->reserve(header.length() + body.length() + 64);
     
