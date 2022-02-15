@@ -118,6 +118,7 @@ typedef struct DeviceInfoS_
 	unsigned int subnetMask;
 	unsigned int gatewayAddress;
 	char unitType; // 0 = mph, 1 = kmh
+	int autoDim;							// Do autodim
 } DeviceInfoS;
 // #pragma packed()
 

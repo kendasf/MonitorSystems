@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
+#include <semaphore.h>
 #include "pinctl.h"
 #include "pwm.h"
 
@@ -24,7 +25,9 @@ struct pwm_control_block
 	unsigned long duty;
 	int run;
 	char pwmStatus;
+	char *pwmDutyFile;
 	int pin;
+	sem_t pwmUpdateLock;
 };
 
 pwmHandle pwmCtl;
@@ -204,8 +207,11 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);	
 
-		sprintf(fname, "/sys/class/pwm/pwmchip0/pwm%d/duty_cycle", pwmPin);						/* Open PWM at duty cycle*/
-		pwmCtl[index].fd = open(fname, O_RDWR);		/* Set file descriptor for PWM */
+		size_t needed = sprintf(fname, "/sys/class/pwm/pwmchip0/pwm%d/duty_cycle", pwmPin);						/* Open PWM at duty cycle*/
+		pwmCtl[index].pwmDutyFile = (char *)malloc( needed );
+		sprintf(pwmCtl[index].pwmDutyFile, "/sys/class/pwm/pwmchip0/pwm%d/duty_cycle", pwmPin);
+		
+		sem_init (&pwmCtl[index].pwmUpdateLock, 0, 1);
 	}
 	else
 	{
@@ -239,9 +245,11 @@ void stopPwm(pwmHandle pwmHdl)
 	char* resp;
 	if(NULL != pwmHdl )
 	{
+		//close(pwmHdl->fd);
 		sprintf(cmd, "echo 0 > /sys/class/pwm/pwmchip0/pwm%d/enable", pwmHdl->pin);
 		resp = SysCmd(cmd);
 		pwmHdl->run = 0;
+		sem_destroy(&pwmHdl->pwmUpdateLock);
 		if (resp != NULL) free(resp);	
 	}
 	else {
@@ -286,23 +294,34 @@ unsigned long  getPwmDuty(pwmHandle pwmHdl)
 	return (unsigned long)-1;
 }
 
+unsigned long pwmDutyLast = 0;
 void setPwmDuty(pwmHandle pwmHdl, unsigned long duty)
 {
-	char dutyStr[20];
+	char dutyStr[20] = {0};
+	int err;
+	char cmd[80];
+	char *resp;
+
 	if(NULL != pwmHdl )
 	{
-		int err;
-		sprintf(dutyStr, "%lu", duty);
-		err = write(pwmHdl->fd, dutyStr, strlen(dutyStr));
-		if (err < 0)
+		sem_wait(&pwmHdl->pwmUpdateLock);
+		if( pwmDutyLast != duty)
 		{
-			printf("setPwmDuty ERR: %d - %s\r\n", errno, strerror(errno));
 			pwmHdl->duty = (unsigned int)-1;
+			sprintf(cmd, "echo %lu > %s", duty, pwmHdl->pwmDutyFile);		/* Set period of PWM*/
+			resp = SysCmd(cmd);
+			if (resp != NULL) 
+			{
+				printf("setPwmDuty ERR: - %s\r\n", resp);
+				free(resp);
+			}
+			else
+			{
+				pwmHdl->duty = duty;
+				pwmDutyLast = duty;
+			}
 		}
-		else
-		{
-			pwmHdl->duty = duty;
-		}
+		sem_post(&pwmHdl->pwmUpdateLock);
 	}
 	else {
 		printf("PWM not allocated\n");

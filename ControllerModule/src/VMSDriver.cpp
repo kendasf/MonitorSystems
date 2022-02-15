@@ -161,7 +161,6 @@ int VMSDriver_UpdateFrame()
 
 	FileRoutines_readDeviceInfo(&deviceInfo);
 
-	setPwmDuty(thePWMHandle, PWM_PERIOD); // PWM_PERIOD as duty turns off LEDs
 	busy_usleep(PWM_PERIOD * 3 / 2000);
 
 	// Send a panel at a time for all panels	
@@ -189,15 +188,18 @@ int VMSDriver_UpdateFrameFast()
 	DeviceInfoS deviceInfo;
 	unsigned char spi_stream[sizeof(VMSBitmap)];
 	bool rotate180 = false;
+	struct timespec delay, timeLeft;
+
+	delay.tv_nsec = (1) * (1000) * (1000);
+	delay.tv_sec = 0;
 
 	if (memcmp(PrevVMSBitmap, VMSBitmap, sizeof(VMSBitmap)) == 0)
 		return 0;
 
 	FileRoutines_readDeviceInfo(&deviceInfo);	
 
-	setPwmDuty(thePWMHandle, PWM_PERIOD); // PWM_PERIOD as duty turns off LEDs
-	busy_usleep(PWM_PERIOD / 1000 + 500);
-
+	// busy_usleep(PWM_PERIOD / 1000 + 500);
+	
 	for(j = VMS_PANELS - 1; j >= 0; j--)
 	{
 		int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
@@ -224,6 +226,8 @@ int VMSDriver_UpdateFrameFast()
 	}
 
 	SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
+
+	nanosleep(&delay, &timeLeft);
 
 	memcpy(PrevVMSBitmap, VMSBitmap, sizeof(VMSBitmap));
 
@@ -825,13 +829,11 @@ void VMSDriver_WriteSmallChar(int xPos, int yPos, int width, int height, BitmapS
 //
 void SetDisplayLE()
 {
-	busy_usleep(30);
 	pinctl::inst().set(bufleFd, 0);
-	busy_usleep(30);
+	usleep(10);
 	pinctl::inst().set(bufleFd, 1);
-
-	busy_usleep(450); // .5 ms
-	setPwmDuty(thePWMHandle, pwmDuty);
+	usleep(10);
+	pinctl::inst().set(bufleFd, 0);
 }
 
 //
@@ -1275,9 +1277,14 @@ void RunChristmasSequence() {
 void VMSDriver_RunStartSequence()
 {
 	int i, j, k;
+	struct timespec delay, timeLeft;
+
+	delay.tv_sec = 0;
+	delay.tv_nsec	= (100) * (1000) * (1000); 
+
 	for(i = 0; i < VMS_WIDTH + VMS_HEIGHT; i++)
 	{
-		VMSDriver_Clear(false);
+		VMSDriver_Clear(true);
 
 		if (i < (VMS_WIDTH + VMS_HEIGHT - 1))
 		{
@@ -1304,7 +1311,8 @@ void VMSDriver_RunStartSequence()
 
 		SetDisplayLE();
 
-		busy_usleep(125000);
+		nanosleep(&delay, &timeLeft);
+
 	}
 	//RunChristmasSequence();
 }

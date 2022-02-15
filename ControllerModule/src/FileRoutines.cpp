@@ -20,38 +20,59 @@
 //
 DeviceInfoS DefaultDeviceInfo = 
 {
-	0x00000000,
-	"User2",
-	"User1",
-	"Admin",
-	"VMSController",
-	57600,
-	3,
-	Protocol_NMEA,
-	2,					/* minDisplaySpeed - normally 10*/
-	35,					/* blinkLimit */ 
-	0,					/* blinkLimitFromRotary */
-	80,					/* maxDisplaySpeed */ 
-	0,					/* maxSpeedFromRotary */
-	850,				/* blinkOnDurationMs */
-	850,				/* blinkOffDurationMs */ 
-	1000,
-	1,
-	2000,
-	227,
-	1,
-	{
-		{1, 5}, {2, 7}, {4, 10}, {7, 15}, {10, 20}, {15, 35}, {20, 50}, {30, 125},
-		{40, 200}, {65, 350}, {70, 500}, {75, 750}, {80, 1000}, {90, 1500}, {100, 2000}, {100, 2000}
-		
+	0x00000000,				// Version 
+	"User2",					// stupidPassword
+	"User1",					// password
+	"Admin",					// adminPassword
+	"VMSController",		// deviceName
+	57600,					// radarBaudRate
+	3,							// sensitivity
+	Protocol_NMEA,			// radarProtocol
+	2,							// minDisplaySpeed - normally 10
+	35,						// blinkLimit
+	0,							// blinkLimitFromRotary
+	80,						// maxDisplaySpeed
+	0,							// maxSpeedFromRotary
+	850,						// blinkOnDurationMs
+	850,						// blinkOffDurationMs 
+	1000,						// updateDisplayLengthMs
+	1,							// updateDisplaySpeedDelta
+	2000,						// keepLastSpeedLengthMs
+	158,						// displayBrightness - Auto with 30%
+	1,							// panelsConfiguration
+	{							// autoDimming
+		{1, 5}, 
+		{2, 7}, 
+		{4, 10}, 
+		{7, 15}, 
+		{10, 20}, 
+		{15, 35}, 
+		{20, 50}, 
+		{30, 125},
+		{40, 200}, 
+		{65, 350}, 
+		{70, 500}, 
+		{75, 750}, 
+		{80, 1000}, 
+		{90, 1500}, 
+		{100, 2000}, 
+		{100, 2000}
 	},
-	{{0}, {1, 0, 0, 1, 0, 0, 0}, {2, 0, 0, 1, 0, 0, 0}, {0}},
-	0, 0, {0},
-	0,				// useDHCP
-	0x6400A8C0,		// ipAddress	 192.168.0.100
-	0x00FFFFFF,		// subnetMask	  255.255.255.0
-	0x0100A8C0,		// gatewayAddress 192.168.0.1
-	0				// km/h
+	{							// bitmapsConfig
+		{0}, 
+		{1, 0, 0, 1, 0, 0, 0}, 
+		{2, 0, 0, 1, 0, 0, 0}, 
+		{0}
+	},
+	0, 						// scheduleType
+	0, 						// schedulesCount
+	{0},						// schedules array
+	0,							// useDHCP
+	0x6400A8C0,				// ipAddress	 192.168.0.100
+	0x00FFFFFF,				// subnetMask	  255.255.255.0
+	0x0100A8C0,				// gatewayAddress 192.168.0.1
+	0,							// km/h
+	1,							// Autodim
 };
 
 DeviceInfoS DeviceInfo;

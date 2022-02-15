@@ -1692,9 +1692,7 @@ void CommProt_processSDL(char *pData, long sentenceNumber, long dataChannel)
 	// save the changed password
 	//
 	FileRoutines_writeDeviceInfo(&deviceInfo);
-	
-	DoAutoDimming(0);	
-	
+
 	//
 	// return success
 	//

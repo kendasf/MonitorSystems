@@ -64,6 +64,7 @@ const int LookupLux[541] = {
     284, 282, 280, 277, 275, 273, 270, 268, 266, 263, 261, 259, 257, 254, 252, 250, 248, 245, 243, 241, 239, 237, 235, 232, 230, 228, 226, 224, 222, 220};
 
 #define NEW_IF_BOARD
+#define EXTERNAL_DRIVEN_SIREN
 
 static FILE *fpErrLog = NULL;
 
@@ -104,8 +105,13 @@ float lastLuxMeterLPF = 0.0;
 int LastRefreshTime = 0;
 int pwmMonitorFd = -1;
 // 100Hz
-unsigned long pwmDuty = PWM_PERIOD - (2 * (PWM_PERIOD / 500)); // 95%;
+unsigned long pwmDuty = 0; // 95%;
 pwmHandle thePWMHandle = NULL;                                 // Control PWM
+
+void* DoAutoDimming( void *argPtr );
+pthread_t autoDimThreadID;
+char autoDimThreadRunning = 0;
+char disablePWM = 0;
 
 unsigned short UDPCallback(unsigned char socket, unsigned char *remip, unsigned short remport, unsigned char *buf, unsigned short len) { return 0; }
 
@@ -167,7 +173,9 @@ std::vector<gnode::connection_ptr> gnode::connection::_connections;
 
 unsigned long calcPwmDuty(int dutyCyclePercent)
 {
-   unsigned long calcValue;
+   unsigned long calcValue = 0;
+   unsigned long setVal = 0;
+   float newValue = 0.0;
 
 #if 0 // This could give a better resolution for low light
 if (dutyCyclePercent <= 5)
@@ -177,8 +185,16 @@ calcValue = PWM_PERIOD - ((dutyCyclePercent - 5) * 2) * (PWM_PERIOD/500);
 else
 calcValue = PWM_PERIOD - (dutyCyclePercent * (PWM_PERIOD/500));
 #endif
-   calcValue = PWM_PERIOD - (PWM_PERIOD * dutyCyclePercent) / 300;
-
+   if( dutyCyclePercent > 0)
+   {
+      setVal = 100 - dutyCyclePercent;
+      newValue = PWM_PERIOD * (setVal / 100.0);
+      calcValue = (unsigned long)newValue;
+   }
+   else
+   {
+      calcValue = 0;
+   }
    return calcValue;
 }
 
@@ -251,7 +267,7 @@ void TrapCtlC(int sigval)
 {
    printf("TrapCtlC\nClearing Display\n");
    VMSDriver_Clear(true);
-   //VMSDriver_UpdateFrame();
+   autoDimThreadRunning = 0;
    exit(sigval);
 }
 
@@ -259,7 +275,7 @@ void TrapKill6(int sigval)
 {
    printf("TrapKill6\nClearing Display\n");
    VMSDriver_Clear(true);
-   //VMSDriver_UpdateFrame();
+   autoDimThreadRunning = 0;
    exit(sigval);
 }
 
@@ -267,7 +283,7 @@ void TrapKill9(int sigval)
 {
    printf("TrapKill9\nClearing Display\n");
    VMSDriver_Clear(true);
-   //VMSDriver_UpdateFrame();
+   autoDimThreadRunning = 0;
    exit(sigval);
 }
 
@@ -275,7 +291,7 @@ void TrapKill15(int sigval)
 {
    printf("TrapKill15\nClearing Display\n");
    VMSDriver_Clear(true);
-   //VMSDriver_UpdateFrame();
+   autoDimThreadRunning = 0;
    exit(sigval);
 }
 
@@ -334,6 +350,7 @@ int GetVideoDelayMSecs(int speed, DeviceInfoS *pDeviceInfo)
 //
 // Main program loop.
 //
+int camPwrPin = -1;
 int main(int argc, char *argv[])
 {
    int i;
@@ -345,7 +362,6 @@ int main(int argc, char *argv[])
    int hSock = -1;
    char *pStatus;
    int initval = 0;
-   int cameraFd = -1;
    int xbeeSleepFd = -1;
    int xbeeResetFd = -1;
    int xbeePowerFd = -1;
@@ -380,10 +396,8 @@ int main(int argc, char *argv[])
    initPWMDriver(); /* This sets up the structures to drive the PWM */
 
    // init PWM
-   PWMDutyCycle = 0;
-   pwmDuty = calcPwmDuty(PWMDutyCycle);
    thePWMHandle = createPWM(0, pwmPeriod, 0);
-   setPwmDuty(thePWMHandle, pwmDuty);
+   setPwmDuty(thePWMHandle, 0ul);
    startPwm(thePWMHandle);
 
    
@@ -394,17 +408,28 @@ int main(int argc, char *argv[])
    printf(JOURNALD_LEVEL "Setting ADC 2 for Vin Monitor\n");
    adc::inst().enable_channel(2); // Vin
 
-   CommProt_init();
+   camPwrPin = pinctl::inst().export_pin(CAMERA_POWER, 0);
+   pinctl::inst().set(camPwrPin, 0);
 
-   DoAutoDimming(1);
+   for (i = 0; i < 100; i++)  // Preload lux LPF
+   {
+      readLux();
+      usleep(300);
+   }
+
+   res = pthread_create(&autoDimThreadID, NULL, DoAutoDimming, NULL);
+   if( res != 0 )
+   {
+      printf("%d - %s", res, strerror(res));
+      return -1;
+   }
+
+   CommProt_init();
 
    if (argc > 1)
    {
       CAMERA_IP_ADDR = argv[1];
    }
-
-   cameraFd = pinctl::inst().export_pin(CAMERA_POWER, 0);
-   pinctl::inst().set(cameraFd, 1);
 
    if (sem_init(&displaySem, 0, 1) == -1)
    {
@@ -450,18 +475,17 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
       printf("Shutdown Monitor not enabled\n");
 #endif
 
-   sleep(1);
+   FileRoutines_readDeviceInfo(&deviceInfo);
 
    VMSDriver_RunStartSequence();
 
    tcpListenerFd = getTcpListen(SERVER_PORT_NUM, 1);
-
-   FileRoutines_readDeviceInfo(&deviceInfo);
+   
    Directory("/store/System");
 
    CreateMemoryTask(5801);
 
-   CreateCameraTask(5800, mainPort);
+   // CreateCameraTask(5800, mainPort);
    Radar_CreateTask(5802, mainPort);
 
    //
@@ -472,13 +496,7 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
 
    printf("Before read info\n");
    FileRoutines_readDeviceInfo(&deviceInfo);
-   fileDirty = 0;
-   for (i = 0; i < 5; i++)
-   {
-      printf("Before read lux\n");
-      readLux();
-      usleep(100);
-   }
+   fileDirty = 1;
 
    // loopTime = GetTickCount();
 
@@ -488,8 +506,6 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
 
    while (1)
    {
-      readLux();
-
       for (int i = 0; i < 10; i++)
       {
          if (!gnode::fs::proc_events())
@@ -620,21 +636,20 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
          CurrentlyDisplayedSpeed = 0;
       }
 
-      if ((UpdateLuxmeterCnt > 30) && (!voltageTooLow))
+      if ((UpdateLuxmeterCnt > 30) && (!voltageTooLow))  // Update auto dim every 30 seconds
       {
 
          static int lastDutyCycleLevel = -1;
-         int currentDutyCycle = DoAutoDimming(1);
          UpdateLuxmeterCnt = 0;
 
-         // Change only if there is a zero crossing
-         if (((lastDutyCycleLevel > 30) && (currentDutyCycle <= 30)) ||
-             ((lastDutyCycleLevel <= 30) && (currentDutyCycle > 30)) ||
+         // Change only if there is a zero crossing - But why!!!
+         if (((lastDutyCycleLevel > 30) && (PWMDutyCycle <= 30)) || 
+             ((lastDutyCycleLevel <= 30) && (PWMDutyCycle > 30)) ||
              (lastDutyCycleLevel == -1) ||
              (SetCameraModeCnt > 10 * 60))
          {
-            printf("PWM Duty Change: Last = %d Current = %d\n", lastDutyCycleLevel, currentDutyCycle);
-            if (currentDutyCycle > 30)
+            printf("PWM Duty Change: Last = %d Current = %d\n", lastDutyCycleLevel, PWMDutyCycle);
+            if (PWMDutyCycle > 30)
             {
                char request[50] = "DAYTIME,0,0,0,0";
                udpSendLocal(hSock, 5800, request, strlen(request));
@@ -646,7 +661,7 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
             }
             SetCameraModeCnt = 0;
          }
-         lastDutyCycleLevel = currentDutyCycle;
+         lastDutyCycleLevel = PWMDutyCycle;
       }
 
       if (secondsTimer != RTC_SEC)
@@ -704,6 +719,7 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
                SupplyVoltageLevel = (SupplyVoltageLevel + (2 * adcr / 266.1f)) / 3.0f;
 #endif
          }
+
          /*
 if (!voltageTooLow && (SupplyVoltageLevel < 8.5))
 {
@@ -721,25 +737,12 @@ voltageTooLow = 0;
          {
             FileRoutines_addLog(LOG_VOLTAGE_TOO_LOW, NULL);
             voltageTooLow = 1;
+            disablePWM = 1;
          }
          else
          {
             voltageTooLow = 0;
-         }
-
-         if ((!(deviceInfo.displayBrightness & 0x80)) && (!voltageTooLow))
-         {
-            PWMDutyCycle = deviceInfo.displayBrightness;
-            pwmDuty = calcPwmDuty(PWMDutyCycle);
-            setPwmDuty(thePWMHandle, pwmDuty);
-            printf("Set duty cycle: %d %lu\n", PWMDutyCycle, pwmDuty);
-         }
-
-         if (voltageTooLow)
-         {
-            PWMDutyCycle = 0;
-            pwmDuty = calcPwmDuty(PWMDutyCycle);
-            setPwmDuty(thePWMHandle, pwmDuty);
+            disablePWM = 0;
          }
 
          /*
@@ -806,6 +809,8 @@ voltageTooLow = 0;
       }
 #endif
    }
+
+   autoDimThreadRunning = 0;
 
    return 0;
 }
@@ -1009,6 +1014,17 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
          AnimationFrameStart = GetTickCount();
       }
 
+#ifdef EXTERNAL_DRIVEN_SIREN
+      if( speedToDisplay > blinkSpeed )
+      {
+         pinctl::inst().set(camPwrPin, 1);
+      }
+      else
+      {
+         pinctl::inst().set(camPwrPin, 0);
+      }
+#endif
+
       if (pDeviceInfo->radarProtocol != Protocol_NMEA)
          FileRoutines_addVehicleLog(speedToDisplay);
    }
@@ -1183,39 +1199,60 @@ int GetLuxmeterValue()
 //
 // Changes brightness if auto dimming is selected.
 //
-int DoAutoDimming(int force)
+void* DoAutoDimming( void *argPtr )
 {
    int targetBrightness;
    DeviceInfoS deviceInfo;
-   FileRoutines_readDeviceInfo(&deviceInfo);
+   struct timespec sleepDelay, timeLeft;
+   int i, j;
+   int luminance = 0;
+   char useAutoDim = 0;
 
-   if (deviceInfo.displayBrightness & 0x80)
+   autoDimThreadRunning = 1;
+
+   sleepDelay.tv_nsec = (150) * (1000) * (1000);                       // 100ms sleep cycle
+   sleepDelay.tv_sec = 0;
+
+   while(1 == autoDimThreadRunning )
    {
-      int i, j;
-      int luminance = GetLuxmeterValue();
+      FileRoutines_readDeviceInfo(&deviceInfo);                      // Update our config
 
-      PWMDutyCycle = deviceInfo.autoDimming[15].brightness;
-
-      for (i = 0; i < 16; i++)
+      if (1 == deviceInfo.autoDim)                                           // Are we doing auto dim?
       {
-         if (luminance <= deviceInfo.autoDimming[i].luminance)
+         luminance = GetLuxmeterValue();
+         PWMDutyCycle = deviceInfo.autoDimming[15].brightness;       // Start at max
+
+         for (i = 0; i < 16; i++)   // This is a table lookup 
          {
-            PWMDutyCycle = deviceInfo.autoDimming[i].brightness;
-            pwmDuty = calcPwmDuty(PWMDutyCycle);
-            setPwmDuty(thePWMHandle, pwmDuty);
-            return PWMDutyCycle;
+            if (luminance <= deviceInfo.autoDimming[i].luminance)
+            {
+               PWMDutyCycle = deviceInfo.autoDimming[i].brightness;  // 0 - 100
+               break;                                                // Found the array value
+            }
          }
       }
+      else
+      {
+         PWMDutyCycle = (deviceInfo.displayBrightness & 0x7F) ; 
+      }
 
-      pwmDuty = calcPwmDuty(PWMDutyCycle);
+      if(1 == disablePWM)
+      {
+         pwmDuty = 0;
+      }
+      else
+      {
+         pwmDuty = calcPwmDuty(PWMDutyCycle);
+      }
+
       setPwmDuty(thePWMHandle, pwmDuty);
-      return PWMDutyCycle;
+      //printf("\t\tPWM Duty %lu\t\n", PWMDutyCycle);
+
+      nanosleep(&sleepDelay, &timeLeft);
+      readLux();
    }
-   else
-   {
-      printf("Auto Dimming not enabled\r\n");
-   }
-   return 0;
+   
+   return NULL;
 }
 
 int IsWithinInterval(int start, int duration)
@@ -1388,12 +1425,14 @@ int m_point[2] = {1778, 1989};
 void readLux(void)
 {
    int rawLvl;
+   float conv;
    int lux = 0;
-   float x1 = 1765.0;
-   float x2 = 1928.0;
-   float y1 = 572.0;
-   float y2 = 25.0;
+   float x1 = 2081.0;
+   float x2 = 2940.0;
+   float y1 = 632;
+   float y2 = 1;
    float m = (y2 - y1 ) / ( x2 - x1 );
+   //float m = (y1 - y2 ) / ( x1 - x2 );
    float b = (y1) - ( m * x1 );
 
    if (getPwmDuty(thePWMHandle) != PWM_PERIOD) // IN the off chance PWM is off skip check
@@ -1405,30 +1444,19 @@ void readLux(void)
          ; // Wait until its off
    }
 
-   rawLvl = adc::inst().readVal(4);
-   // float conv = (rawLvl * (3.3 / 4096) * 2) + 0.225;
+   rawLvl = adc::inst().readVal(4);             // Low number is max LUX  - diode grounds resistor and thus takes voltage down
+   rawLvl = rawLvl + 1050 ;                     // Use offset to adjust result
+   //conv = ((float)rawLvl * (3.3 / 4096.0));     // Raw Voltage
    if (rawLvl > 0)
    {
       lux = (int)( (m * rawLvl) + b + 100.0);
 
-      //printf("Raw %d\t M val %0.3f\t B %03f\t Result Lux %d\t", rawLvl, m, b, lux);
+      //printf("Raw %d\t M val %0.3f\t B %03f\t Result Lux %d\n\r", rawLvl, m, b, lux);
 
-      /*
-      if (lv < 540)
-      {
-         lux = LookupLux[lv];
-         
-      }
-      else
-      {
-         lux = (984 - lv) * 260 / 444;
-      }
-      */
+      if (lux > 2000)   // Cap at full bright
+         lux = 2000;
 
-      if (lux > 3000)   // Cap at full black
-         lux = 3000;
-
-      if (lux < 0)      // Cap at full bright
+      if (lux < 0)      // Cap at full black
          lux = 0;
 
       
@@ -1436,21 +1464,26 @@ void readLux(void)
       {
          m_point[0] = rawLvl;
          minF = rawLvl;
-         //printf("Min found %d\t Max Found %d\n", minF, maxF);
       }
 
       if( rawLvl > maxF )
       {
          m_point[1] = rawLvl;
          maxF = rawLvl;
-         //printf("Min found %d\t Max Found %d\n", minF, maxF);
       }
       
-      LuxMeterLPF = (LuxMeterLPF * 0.995) + (lux * 0.005);
+      if( LuxMeterLPF > lux )  // Down slope
+      {
+         LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+      }
+      else
+      {
+         LuxMeterLPF = (LuxMeterLPF * 0.97) + (lux * 0.03);
+      }
 
+      //printf("Vin %0.3f\t Raw ADC %d\t", conv, rawLvl);
+      //printf("Min found %d\t Max Found %d\t", minF, maxF);
       //printf("LPF Lux = %0.3f\n", LuxMeterLPF);
 
-      //LuxmeterAvgArray[LuxmeterAvgPos] = lux;
-      //LuxmeterAvgPos = (LuxmeterAvgPos + 1) % 60;
    }
 }

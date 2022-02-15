@@ -124,7 +124,7 @@ int sendCameraCommand(char *hostIP, char *command)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      printf("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 
@@ -258,7 +258,7 @@ char *queryCmd(char *hostIP, char *command, char *store, int *length)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return NULL;
    }
 
@@ -339,7 +339,7 @@ int GetImageUpload(char *hostIP, int image)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 
@@ -447,7 +447,7 @@ int stopZoom(char *hostIP)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 
@@ -511,7 +511,7 @@ int setZoom(char *hostIP, int position)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 
@@ -578,7 +578,7 @@ int readZoom(char *hostIP)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 
@@ -646,7 +646,7 @@ int updateSpeed(char *hostIP, int speed)
    //Connect to remote server
    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
-      perror("connect failed. Error");
+      printf("connect failed. Error - %s\n", __func__ );
       return -1;
    }
 

@@ -926,17 +926,21 @@ webservices::response webservices::change_param(const http::query& qs, const hea
       deviceInfo.displayBrightness = 100;
     if (deviceInfo.displayBrightness < 0)
       deviceInfo.displayBrightness = 0;
-    DoAutoDimming(0);
     change_successfull = true;
   }
 
   if ((param_it->second == "autodimming") && (qs["value"].length() > 0)) {
     int autodimming = std::stoi(qs["value"]);
     if (autodimming)
+    {
       deviceInfo.displayBrightness |= 0x80;
+      deviceInfo.autoDim = 1;
+    }
     else
+    {
       deviceInfo.displayBrightness &= ~0x80;
-    DoAutoDimming(0);
+      deviceInfo.autoDim = 0;
+    }
     change_successfull = true;
   }
 
@@ -948,7 +952,6 @@ webservices::response webservices::change_param(const http::query& qs, const hea
       deviceInfo.autoDimming[i].brightness = std::stod(qs["i" + std::to_string(i)]);
       deviceInfo.autoDimming[i].luminance = std::stod(qs["l" + std::to_string(i)]);
     }
-    DoAutoDimming(0);
     change_successfull = true;
   }
 

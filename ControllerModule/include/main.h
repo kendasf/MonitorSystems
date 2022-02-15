@@ -43,7 +43,7 @@ void ExchangeUARTData(uart_ptr dev);
 void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo);
 void UpdateLuxmeter(void);
 int GetLuxmeterValue(void);
-int DoAutoDimming(int force);
+int GetPWMDuty(void);
 void SetTime(void);
 
 int UpdateStandbyMode(DeviceInfoS *pDeviceInfo);

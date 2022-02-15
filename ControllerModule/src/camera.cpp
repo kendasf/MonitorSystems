@@ -22,6 +22,7 @@
 #include <thread>
 #include <chrono>
 
+extern int PWMDutyCycle;
 
 static int delay_image[2] = {7, 7};
 static int initialDelay = 0;
@@ -606,7 +607,7 @@ void* cameraTask(void* argPtr)
 								}
 								free(entry);
 							}
-							if (DoAutoDimming(1) > 30)
+							if (PWMDutyCycle > 30)
 							{
 								sendCameraCommand((char*) CAMERA_IP_ADDR, "GET /cgi-bin/encoder?USER=admin&PWD=123456&PTZ_PRESET_GO=1"); 
 								SendCommand((char*) CAMERA_IP_ADDR, EVENT_DAY_SETTING); 
