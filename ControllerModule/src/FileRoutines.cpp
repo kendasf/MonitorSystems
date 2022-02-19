@@ -15,6 +15,8 @@
 #include "FileRoutines.h"
 #include "SystemUtilities.h"
 
+#define TABLE_OVERWRITE
+
 //
 // Default device settings
 //
@@ -601,6 +603,7 @@ int FileRoutines_autoconfFromCard(char* fname)
 	FILEHANDLE fh = -1;
 	int largeSign = 0;
 	int pos = 0;
+	AutoDimmingEntryS autoDim[16] = {0};
 
 	//
 	// read autoconf file
@@ -633,7 +636,11 @@ int FileRoutines_autoconfFromCard(char* fname)
 
 
 	if (useAutodimming)
+	{
 		DeviceInfo.displayBrightness |= 0x80;
+		DeviceInfo.autoDim = 1;
+	}
+		
 	_sys_read(fh, (unsigned char*)(&DeviceInfo.panelsConfiguration), 4, 0);
 	pos += 4;
 
@@ -656,9 +663,14 @@ int FileRoutines_autoconfFromCard(char* fname)
 
 	for (i = 0; i < 16; i++)
   {
-		_sys_read(fh, (unsigned char*)(&DeviceInfo.autoDimming[i].brightness), 4, 0);
-		_sys_read(fh, (unsigned char*)(&DeviceInfo.autoDimming[i].luminance), 4, 0);
-		pos += 8;
+#ifdef TABLE_OVERWRITE
+			_sys_read(fh, (unsigned char*)(&DeviceInfo.autoDimming[i].brightness), 4, 0);
+			_sys_read(fh, (unsigned char*)(&DeviceInfo.autoDimming[i].luminance), 4, 0);
+#else
+			_sys_read(fh, (unsigned char*)(&autoDim[i].brightness), 4, 0);
+			_sys_read(fh, (unsigned char*)(&autoDim[i].luminance), 4, 0);
+#endif
+	  pos += 8;
   }
 
   for (i = 0; i < 4; i++)

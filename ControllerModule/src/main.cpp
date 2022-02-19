@@ -41,6 +41,8 @@
 #include "../http/efgy_http.h"
 #include "http.h"
 
+#define PWMMAX 36
+
 static const int DIM[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 const int LookupLux[541] = {
@@ -91,20 +93,13 @@ int TestModeDuration = 0;
 int ActiveEthSock = 0;
 
 void readLux(void);
-volatile int LuxmeterAvgArray[60] = {
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 int LuxmeterAvgPos = 0;
 float LuxMeterLPF = 0.0;
 float lastLuxMeterLPF = 0.0;
 
 int LastRefreshTime = 0;
 int pwmMonitorFd = -1;
-// 100Hz
+
 unsigned long pwmDuty = 0; // 95%;
 pwmHandle thePWMHandle = NULL;                                 // Control PWM
 
@@ -149,7 +144,7 @@ static sem_t displaySem;
 #define XB_SLEEP GPIO(1, 29)    // P8.26 Active Low XB Sleep
 #define XB_POWER GPIO(2, 24)    // P8.28 Active High XB Power
 #define PANEL_FLASH GPIO(2, 25) // P8.30 Active High Panel Flasher
-#define CAMERA_POWER GPIO(1, 4) // P8.23 Active High Camera Power
+#define CAMERA_POWER GPIO(2, 9) // P8.44 Active High Camera Power - GPIO 73
 
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_reads;
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_writes;
@@ -170,6 +165,24 @@ std::vector<gnode::connection_ptr> gnode::connection::_connections;
 //        3 = 1/3% 0.33%
 //        2 = 1/4% 0.25%
 //        1 = 1/5% 0.20%
+
+
+unsigned long scalePercentage(unsigned long maxValue, unsigned long percentage)
+{
+   /*  Ex max is 30 and value put in is 100%  
+   PWMMAX * 100% = 31, PWMMAX * 50% = 16
+   */
+   unsigned long retval = 0;
+   float calc = (float)maxValue * ((float)percentage / 100.0);
+   
+   retval = (unsigned long)calc;
+   if( retval < 1 )
+   {
+      retval = 1;
+   }
+   // printf("Max = %lu, Perc = %lu, Res %lu\n", maxValue, percentage, retval);
+   return retval;
+}
 
 unsigned long calcPwmDuty(int dutyCyclePercent)
 {
@@ -373,6 +386,7 @@ int main(int argc, char *argv[])
    int cameraBusy = 0;
    int res = 0;
    char *inMsg = NULL;
+   char pinSet = 0;
 
    long loopMax = 0;
    long loopDur = 0;
@@ -409,7 +423,7 @@ int main(int argc, char *argv[])
    adc::inst().enable_channel(2); // Vin
 
    camPwrPin = pinctl::inst().export_pin(CAMERA_POWER, 0);
-   pinctl::inst().set(camPwrPin, 0);
+   pinctl::inst().set(camPwrPin, 1);
 
    for (i = 0; i < 100; i++)  // Preload lux LPF
    {
@@ -699,6 +713,9 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
          }
 
          // flash status LED to indicate that the software is running properly
+         pinSet = ~pinSet;
+         pinctl::inst().set(camPwrPin, pinSet);
+
          int adcr = adc::inst().readVal(2);
          float calcV = (adcr * (3.3 / 4096) * 8.5) + 0.225; // 0.225 is the measured line loss fudge factor
 
@@ -1171,26 +1188,6 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
 //
 int GetLuxmeterValue()
 {
-   /*
-   int i;
-   int sum = 0;
-   int count = 0;
-
-   for (i = 0; i < 60; i++)
-   {
-      if (LuxmeterAvgArray[i] > 0)
-      {
-         sum += LuxmeterAvgArray[i];
-         count++;
-      }
-   }
-
-   if (count == 0)
-      return 0;
-
-   return sum / count;
-   */
-
    return (int)LuxMeterLPF;
 }
 
@@ -1207,11 +1204,16 @@ void* DoAutoDimming( void *argPtr )
    int i, j;
    int luminance = 0;
    char useAutoDim = 0;
+   unsigned long pwmSet = 0;
+   unsigned long pwmMax = PWMMAX;
 
    autoDimThreadRunning = 1;
 
    sleepDelay.tv_nsec = (150) * (1000) * (1000);                       // 100ms sleep cycle
    sleepDelay.tv_sec = 0;
+
+
+   printf("Absolute PWM max is %lu percent of input voltage\n", pwmMax);
 
    while(1 == autoDimThreadRunning )
    {
@@ -1236,17 +1238,19 @@ void* DoAutoDimming( void *argPtr )
          PWMDutyCycle = (deviceInfo.displayBrightness & 0x7F) ; 
       }
 
+      pwmSet = scalePercentage(pwmMax, PWMDutyCycle);
+      
       if(1 == disablePWM)
       {
          pwmDuty = 0;
       }
       else
       {
-         pwmDuty = calcPwmDuty(PWMDutyCycle);
+         pwmDuty = calcPwmDuty(pwmSet);
       }
 
       setPwmDuty(thePWMHandle, pwmDuty);
-      //printf("\t\tPWM Duty %lu\t\n", PWMDutyCycle);
+      //printf("\t\tPWM Duty %lu, Set %lu\t\n", PWMDutyCycle, pwmSet);
 
       nanosleep(&sleepDelay, &timeLeft);
       readLux();
@@ -1445,31 +1449,30 @@ void readLux(void)
    }
 
    rawLvl = adc::inst().readVal(4);             // Low number is max LUX  - diode grounds resistor and thus takes voltage down
-   rawLvl = rawLvl + 1050 ;                     // Use offset to adjust result
-   //conv = ((float)rawLvl * (3.3 / 4096.0));     // Raw Voltage
    if (rawLvl > 0)
    {
+      rawLvl = rawLvl + 1050 ;                        // Use offset to adjust result
+      //conv = ((float)rawLvl * (3.3 / 4096.0));      // Raw Voltage
       lux = (int)( (m * rawLvl) + b + 100.0);
-
       //printf("Raw %d\t M val %0.3f\t B %03f\t Result Lux %d\n\r", rawLvl, m, b, lux);
 
-      if (lux > 2000)   // Cap at full bright
-         lux = 2000;
+      // if (lux > 2000)   // Cap at full bright
+      //    lux = 2000;
 
-      if (lux < 0)      // Cap at full black
-         lux = 0;
+      // if (lux < 0)      // Cap at full black
+      //    lux = 0;
 
       
-      if( rawLvl < minF )
+      if( lux < minF )
       {
-         m_point[0] = rawLvl;
-         minF = rawLvl;
+         m_point[0] = lux;
+         minF = lux;
       }
 
-      if( rawLvl > maxF )
+      if( lux > maxF )
       {
-         m_point[1] = rawLvl;
-         maxF = rawLvl;
+         m_point[1] = lux;
+         maxF = lux;
       }
       
       if( LuxMeterLPF > lux )  // Down slope
@@ -1481,9 +1484,9 @@ void readLux(void)
          LuxMeterLPF = (LuxMeterLPF * 0.97) + (lux * 0.03);
       }
 
-      //printf("Vin %0.3f\t Raw ADC %d\t", conv, rawLvl);
-      //printf("Min found %d\t Max Found %d\t", minF, maxF);
-      //printf("LPF Lux = %0.3f\n", LuxMeterLPF);
+      // printf("Raw ADC %d\t", rawLvl);
+      // printf("Min found %d\t Max Found %d\t", minF, maxF);
+      // printf("LPF Lux = %0.3f\n", LuxMeterLPF);
 
    }
 }

@@ -317,6 +317,7 @@ void setPwmDuty(pwmHandle pwmHdl, unsigned long duty)
 			}
 			else
 			{
+				printf("PWM set - %lu\n", duty);
 				pwmHdl->duty = duty;
 				pwmDutyLast = duty;
 			}

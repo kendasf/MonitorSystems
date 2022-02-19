@@ -57,7 +57,7 @@ int pinctl::open_gpio_pin(int pin, int dir) {
 
 int pinctl::export_pin(int pin, int dir) {
   FILE *fd = NULL;
-  int direct = dir & 1; // 0 or 1 
+  int direct = dir & 1; // 0 is out or 1 is in 
   int up = (dir & 2) >> 1; 
   int down = (dir & 4) >> 2;
   char path[75] = "/sys/class/gpio/export";

@@ -13,8 +13,8 @@
 #include <chrono>
 #include <cstdlib>
 
-#define BUFLE GPIO(3, 16)
-#define BUFOE GPIO(1, 19)
+#define BUFLE GPIO(3, 16)	// GPIO_112, P9 #30
+#define BUFOE GPIO(1, 19)	// PWM output
 
 #define PWM_MONITOR GPIO(1,28)
 
