@@ -144,7 +144,7 @@ static sem_t displaySem;
 #define XB_SLEEP GPIO(1, 29)    // P8.26 Active Low XB Sleep
 #define XB_POWER GPIO(2, 24)    // P8.28 Active High XB Power
 #define PANEL_FLASH GPIO(2, 25) // P8.30 Active High Panel Flasher
-#define CAMERA_POWER GPIO(2, 9) // P8.44 Active High Camera Power - GPIO 73
+#define CAMERA_POWER GPIO(1, 15) // P8.15 Active High Camera Power - GPIO 47
 
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_reads;
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_writes;
@@ -423,7 +423,7 @@ int main(int argc, char *argv[])
    adc::inst().enable_channel(2); // Vin
 
    camPwrPin = pinctl::inst().export_pin(CAMERA_POWER, 0);
-   pinctl::inst().set(camPwrPin, 1);
+   pinctl::inst().set(camPwrPin, 0);
 
    for (i = 0; i < 100; i++)  // Preload lux LPF
    {
@@ -709,12 +709,10 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
                CurrentlyDisplayedFrameStart = GetTickCount();
                AnimationFrameIdx = 0;
                AnimationFrameStart = GetTickCount();
+               pinctl::inst().set(camPwrPin, 0);
             }
          }
 
-         // flash status LED to indicate that the software is running properly
-         pinSet = ~pinSet;
-         pinctl::inst().set(camPwrPin, pinSet);
 
          int adcr = adc::inst().readVal(2);
          float calcV = (adcr * (3.3 / 4096) * 8.5) + 0.225; // 0.225 is the measured line loss fudge factor
@@ -735,6 +733,14 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
             else
                SupplyVoltageLevel = (SupplyVoltageLevel + (2 * adcr / 266.1f)) / 3.0f;
 #endif
+
+            // flash status LED to indicate that the software is running properly
+            if (TestModeDuration > 0)
+            {
+               pinSet = ~pinSet;
+               pinctl::inst().set(camPwrPin, pinSet);
+            }
+            
          }
 
          /*
@@ -982,11 +988,15 @@ void MakeCornerBitmap(BitmapS *bmp, int width, int height)
 //
 // Updates the VMS if neccessary.
 //
+std::chrono::time_point<std::chrono::steady_clock> dwellTimeSirenStart;
+std::chrono::duration<float> dwellTimeSirenDuration;
+bool dwellTimeSirenOn = false;
 void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
 {
    int minSpeed, blinkSpeed, maxSpeed;
    int refreshRequired = 0;
    int bcIdx = 0;
+   std::chrono::duration<float> durationCast;
 
    //
    // determine min, blink and maximum speed limits
@@ -1032,13 +1042,27 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
       }
 
 #ifdef EXTERNAL_DRIVEN_SIREN
-      if( speedToDisplay > blinkSpeed )
+      if( speedToDisplay > blinkSpeed )   /* Blink speed is the speed limit according to the webservices.cpp  */
       {
          pinctl::inst().set(camPwrPin, 1);
+         dwellTimeSirenOn = true;
+         dwellTimeSirenStart = std::chrono::steady_clock::now();
       }
       else
       {
-         pinctl::inst().set(camPwrPin, 0);
+         if( dwellTimeSirenOn == false )
+         {
+            pinctl::inst().set(camPwrPin, 0);
+         }
+         else
+         {
+            dwellTimeSirenDuration = std::chrono::steady_clock::now() - dwellTimeSirenStart;
+            durationCast = std::chrono::duration_cast<std::chrono::milliseconds>(dwellTimeSirenDuration);
+            if( durationCast.count() > pDeviceInfo->blinkOnDurationMs) /* Stay on for at least 1 second */
+            {
+               dwellTimeSirenOn = false;
+            }
+         }
       }
 #endif
 

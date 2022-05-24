@@ -1,0 +1,16 @@
+[Unit]
+Description=Monitor Systems VMS daemon
+After=vmsconfig.service
+Wants=vmsconfig.service
+
+[Service]
+Type=simple
+ExecStart=/root/ControllerModule/vms
+ExecStop=/root/ControllerModule/vms_shutdown.sh
+SyslogIdentifier=vmsd
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

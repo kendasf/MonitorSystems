@@ -443,6 +443,9 @@ void VMSDriver_WriteSpeed(int x, int y, int panelsConfig, int speed, int font)
 			case 4:
 				VMSDriver_WriteLargeChar(x - dig3offset - 3, y, width, height, &bitmap, Font4_Digit1);
 			break;
+			case 5:
+				VMSDriver_WriteXLargeChar(x - dig3offset - 3, y, width, height, &bitmap, Font6_Digit1);
+			break;
 		}
 	}
 
@@ -641,6 +644,44 @@ void VMSDriver_WriteSpeed(int x, int y, int panelsConfig, int speed, int font)
 				break;
 			}			
 		}
+		else if (font == 5)
+		{
+			int ax = (i == 0) ? 1 : 0;
+			switch (digit)
+			{
+			case 0:
+				if ((i == 0) || (use3digits)) // do not display first digit as zero
+					VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit0);
+				break;
+			case 1:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit1);
+				break;
+			case 2:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit2);
+				break;
+			case 3:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit3);
+				break;
+			case 4:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit4);
+				break;
+			case 5:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit5);
+				break;
+			case 6:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit6);
+				break;
+			case 7:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit7);
+				break;
+			case 8:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit8);
+				break;
+			case 9:
+				VMSDriver_WriteXLargeChar(x + 16 - i*16 + ax + dig3offset, y, width, height, &bitmap, Font6_Digit9);
+				break;
+			}			
+		}
 	}
 
 	VMSDriver_RenderBitmap(0, &bitmap);
@@ -750,6 +791,30 @@ void VMSDriver_WriteChar(int xPos, int yPos, int width, int height, BitmapS *pBi
 	for(x = 0; x < 8; x++)
 	{
 		for(y = 0; y < 10; y++)
+		{
+			if ((Digit[y][x]) && (yPos + y < height) && (xPos + x < width))
+			{
+				int pixelPos = xPos + x + (yPos + y)* MAX_BMP_WIDTH;
+				pBitmap->bitmapData[pixelPos / 8] |= (1 << (pixelPos % 8));
+			}
+		}
+	}
+}
+
+
+//
+// void VMSDriver_WriteXLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, unsigned char Digit[24][16])
+//
+// Displays the given character.
+//	   Note: xPos is horizontal offset in pixels for the Digit pattern
+//           yPos is vertical offset in pixels for the Digit pattern
+//
+void VMSDriver_WriteXLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[24][16])
+{
+	int x, y;
+	for(x = 0; x < 16; x++)
+	{
+		for(y = 0; y < 24; y++)
 		{
 			if ((Digit[y][x]) && (yPos + y < height) && (xPos + x < width))
 			{

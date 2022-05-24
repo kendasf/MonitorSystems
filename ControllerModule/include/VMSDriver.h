@@ -35,6 +35,7 @@ void VMSDriver_Clear(bool doUpdate);
 void VMSDriver_White(unsigned char val);
 int VMSDriver_Test(void);
 
+void VMSDriver_WriteXLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[24][16]);
 void VMSDriver_WriteLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[18][12]);
 void VMSDriver_WriteSemiLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[13][8]);
 void VMSDriver_WriteChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[10][8]);

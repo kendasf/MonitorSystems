@@ -1,0 +1,10 @@
+[Unit]
+Description=Monitor Systems - Beagle Bone Black Hardware Initializaton Service
+
+[Service]
+Type=simple
+ExecStart=/root/ControllerModule/vms_startup.sh
+SyslogIdentifier=vmsconfig
+
+[Install]
+WantedBy=multi-user.target
