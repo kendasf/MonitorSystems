@@ -845,6 +845,15 @@ webservices::response webservices::change_param(const http::query& qs, const hea
     if (resp != NULL) printf("Change time response: %s\r\n", resp);
     if (resp != NULL) free(resp);
 
+    // Set the RTC
+    sprintf(params, "sudo timedatectl set-local-rtc 1");
+    resp = SysCmd(params);
+    if (resp != NULL) free(resp);
+
+    sprintf(params, "sudo timedatectl set-local-rtc 0");
+    resp = SysCmd(params);
+    if (resp != NULL) free(resp);
+
     /*
     resp = SysCmd("hwclock -s -f /dev/rtc1"); // Updates OS from RTC
     if (resp != NULL) printf("Change time 2 response: %s\r\n", resp);

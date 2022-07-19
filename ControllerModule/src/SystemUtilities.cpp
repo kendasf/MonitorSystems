@@ -616,7 +616,7 @@ void setRun(unsigned char run)
         pwmRun = run;
 }
 
-#define BUFOE GPIO(3, 19)
+#define BUFOE GPIO(3, 19)       // 115
 void *PwmTask(void *arg)
 {
         int bufoeFd = -1;

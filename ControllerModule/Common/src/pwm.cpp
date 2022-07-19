@@ -129,12 +129,12 @@ void initPWMDriver( void )
 	char cmd[80] = {0};
 	char* resp;
 
-	resp = SysCmd("echo BB-PWM1 > /sys/devices/platform/bone_capemgr/slots");
-	if (resp != NULL)
-	{
-		printf("%s", resp);
-		free(resp);
-	}
+	// resp = SysCmd("echo BB-PWM1 > /sys/devices/platform/bone_capemgr/slots");
+	// if (resp != NULL)
+	// {
+	// 	printf("%s", resp);
+	// 	free(resp);
+	// }
 
 	resp = SysCmd("cat /sys/class/pwm/pwmchip0/npwm");
 	if( resp != NULL)
@@ -199,17 +199,17 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 		{
 			snprintf(polarityType, 20, "inversed");
 		}
-		sprintf(cmd, "echo %s > /sys/class/pwm/pwmchip0/pwm%d/polarity", polarityType, pwmPin);		/* Set polarity */
+		sprintf(cmd, "echo %s > /sys/class/pwm/pwmchip0/pwm-0:%d/polarity", polarityType, pwmPin);		/* Set polarity */
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);	
 
-		sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm%d/period", period, pwmPin);		/* Set period of PWM*/
+		sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm-0:%d/period", period, pwmPin);		/* Set period of PWM*/
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);	
 
-		size_t needed = sprintf(fname, "/sys/class/pwm/pwmchip0/pwm%d/duty_cycle", pwmPin);						/* Open PWM at duty cycle*/
+		size_t needed = sprintf(fname, "/sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", pwmPin);						/* Open PWM at duty cycle*/
 		pwmCtl[index].pwmDutyFile = (char *)malloc( needed );
-		sprintf(pwmCtl[index].pwmDutyFile, "/sys/class/pwm/pwmchip0/pwm%d/duty_cycle", pwmPin);
+		sprintf(pwmCtl[index].pwmDutyFile, "/sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", pwmPin);
 		
 		sem_init (&pwmCtl[index].pwmUpdateLock, 0, 1);
 	}
@@ -229,7 +229,7 @@ void startPwm(pwmHandle pwmHdl)
 	char* resp;
 	if(NULL != pwmHdl )
 	{
-		sprintf(cmd, "echo 1 > /sys/class/pwm/pwmchip0/pwm%d/enable", pwmHdl->pin);
+		sprintf(cmd, "echo 1 > /sys/class/pwm/pwmchip0/pwm-0:%d/enable", pwmHdl->pin);
 		resp = SysCmd(cmd);
 		pwmHdl->run = 1;
 		if (resp != NULL) free(resp);	
@@ -246,7 +246,7 @@ void stopPwm(pwmHandle pwmHdl)
 	if(NULL != pwmHdl )
 	{
 		//close(pwmHdl->fd);
-		sprintf(cmd, "echo 0 > /sys/class/pwm/pwmchip0/pwm%d/enable", pwmHdl->pin);
+		sprintf(cmd, "echo 0 > /sys/class/pwm/pwmchip0/pwm-0:%d/enable", pwmHdl->pin);
 		resp = SysCmd(cmd);
 		pwmHdl->run = 0;
 		sem_destroy(&pwmHdl->pwmUpdateLock);

@@ -75,9 +75,9 @@ void uSD_flash_monitor_init(void)
       if( false == HaveExternalFlash )
       {
          /* mount -t fsType device dir */
-         SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
-         SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
-         SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
+         // SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
+         // SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
+         // SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
          checkExtResp = SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
       
          if( NULL == checkExtResp )  /* Null response means that the mount command worked */
@@ -123,7 +123,7 @@ void uSD_flash_monitor_init(void)
          free(checkExtResp);
       }
       
-      checkExtResp = SysCmd("mv /store/PhotoInt/* /store/Photo/");    /* Move internal data to uSD card */
+      checkExtResp = SysCmd("mv /storeInt/PhotoInt/* /store/Photo/");    /* Move internal data to uSD card */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
@@ -155,7 +155,7 @@ void uSD_flash_monitor_init(void)
          free(checkExtResp);
       }
       
-      checkExtResp = SysCmd("mv /store/VehicleCountsInt/* /mnt/ext/VehicleCounts/");      /* Move internal data to uSD card */
+      checkExtResp = SysCmd("mv /storeInt/VehicleCountsInt/* /mnt/ext/VehicleCounts/");      /* Move internal data to uSD card */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
@@ -189,7 +189,7 @@ void uSD_flash_monitor_init(void)
          free(checkExtResp);
       }
 
-      checkExtResp = SysCmd("ln -s /store/PhotoInt /store/Photo");  /* map Photo to internal flash drive */
+      checkExtResp = SysCmd("ln -s /storeInt/PhotoInt /store/Photo");  /* map Photo to internal flash drive */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
@@ -203,7 +203,7 @@ void uSD_flash_monitor_init(void)
          free(checkExtResp);
       }
 
-      checkExtResp = SysCmd("ln -sf /store/VehicleCountsInt /store/VehicleCounts");  /* map Photo to internal flash drive */
+      checkExtResp = SysCmd("ln -sf /storeInt/VehicleCountsInt /store/VehicleCounts");  /* map Photo to internal flash drive */
       if( checkExtResp )
       {
          printf("Error - %s\n", checkExtResp);
@@ -217,9 +217,9 @@ void uSD_flash_monitor_init(void)
    if( 1 == fsChanged )
    {
       SysCmd("chmod 777 /store/Photo");
-      SysCmd("chmod 777 /store/PhotoInt");
+      SysCmd("chmod 777 /storeInt/PhotoInt");
       SysCmd("chmod 777 /store/VehicleCounts");
-      SysCmd("chmod 777 /store/VehicleCountsInt");
+      SysCmd("chmod 777 /storeInt/VehicleCountsInt");
 
       if( true == HaveExternalFlash)
       {

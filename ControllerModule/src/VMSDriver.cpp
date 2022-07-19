@@ -46,11 +46,14 @@ inline void busy_usleep(int usecs) {
 //
 void VMSDriver_Initialize()
 {
-	bufleFd = pinctl::inst().export_pin(BUFLE, 0); 
-	pinctl::inst().set(bufleFd, 1);
-	pwmMonitorFd = pinctl::inst().export_pin(PWM_MONITOR, 1);
+	printf("Setup BUFLE - GPIO 112 - Port 3 Pin 16\n");
+	bufleFd = pinctl::inst().export_pin(BUFLE, 0);  // 112
+	pinctl::inst().set(bufleFd, 0);
 
-	spi_dev = spi_ptr(new spi("/dev/spidev1.0", 0, 8, 4000000));
+	printf("Setup PWM_MONITOR - GPIO 60 - Port 1 Pin 28\n");
+	pwmMonitorFd = pinctl::inst().export_pin(PWM_MONITOR, 1);  //60
+
+	spi_dev = spi_ptr(new spi("/dev/spidev0.1", 0, 8, 4000000));
 
 	VMSDriver_Clear(true);		
 } 

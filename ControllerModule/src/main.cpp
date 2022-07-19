@@ -340,6 +340,11 @@ void ChangeWifiName(const char *newName)
    char *resp = SysCmd(cmd);
    if (resp != NULL)
       free(resp);
+
+   sprintf(cmd, "systemctl restart hostapd.service"); /* Force the name change */
+   resp = SysCmd(cmd);
+   if (resp != NULL)
+      free(resp);
 }
 
 int GetVideoDelayMSecs(int speed, DeviceInfoS *pDeviceInfo)
@@ -643,6 +648,17 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
          else
             VMSDriver_Off();
 
+#ifdef EXTERNAL_DRIVEN_SIREN
+         if( speedToDisplay > deviceInfo.blinkLimit )   /* Blink speed is the speed limit according to the webservices.cpp  */
+         {
+            pinctl::inst().set(camPwrPin, 1);
+         }
+         else
+         {
+            pinctl::inst().set(camPwrPin, 0);            
+         }
+#endif
+
          displayRelease();
       }
       else
@@ -710,6 +726,10 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
                AnimationFrameIdx = 0;
                AnimationFrameStart = GetTickCount();
                pinctl::inst().set(camPwrPin, 0);
+            }
+            else
+            {
+               pinctl::inst().set(camPwrPin, 1);
             }
          }
 
@@ -988,9 +1008,6 @@ void MakeCornerBitmap(BitmapS *bmp, int width, int height)
 //
 // Updates the VMS if neccessary.
 //
-std::chrono::time_point<std::chrono::steady_clock> dwellTimeSirenStart;
-std::chrono::duration<float> dwellTimeSirenDuration;
-bool dwellTimeSirenOn = false;
 void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
 {
    int minSpeed, blinkSpeed, maxSpeed;
@@ -1040,31 +1057,6 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
          AnimationFrameIdx = 0;
          AnimationFrameStart = GetTickCount();
       }
-
-#ifdef EXTERNAL_DRIVEN_SIREN
-      if( speedToDisplay > blinkSpeed )   /* Blink speed is the speed limit according to the webservices.cpp  */
-      {
-         pinctl::inst().set(camPwrPin, 1);
-         dwellTimeSirenOn = true;
-         dwellTimeSirenStart = std::chrono::steady_clock::now();
-      }
-      else
-      {
-         if( dwellTimeSirenOn == false )
-         {
-            pinctl::inst().set(camPwrPin, 0);
-         }
-         else
-         {
-            dwellTimeSirenDuration = std::chrono::steady_clock::now() - dwellTimeSirenStart;
-            durationCast = std::chrono::duration_cast<std::chrono::milliseconds>(dwellTimeSirenDuration);
-            if( durationCast.count() > pDeviceInfo->blinkOnDurationMs) /* Stay on for at least 1 second */
-            {
-               dwellTimeSirenOn = false;
-            }
-         }
-      }
-#endif
 
       if (pDeviceInfo->radarProtocol != Protocol_NMEA)
          FileRoutines_addVehicleLog(speedToDisplay);

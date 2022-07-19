@@ -552,7 +552,8 @@ void* radarTask(void* argPtr)
 	FileRoutines_readDeviceInfo(&DeviceInfo);
 
 	radar_uart = Radar_Init((int)DeviceInfo.radarBaudRate, (RadarProtocolE)DeviceInfo.radarProtocol, DeviceInfo.sensitivity);
-	radarFd = pinctl::inst().export_pin(RADAR_POWER, 0);
+	printf("Setup RADAR_POWER - GPIO 65 - Port 2 Pin 1\n");
+	radarFd = pinctl::inst().export_pin(RADAR_POWER, 0); //65
 	pinctl::inst().set(radarFd, 0);
 	timer = GetTickCount(); 
 	lTmoMs = 1000; // Resets the Radar in 1 second
