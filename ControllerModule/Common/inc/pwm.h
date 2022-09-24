@@ -11,6 +11,7 @@ unsigned long  getPwmDuty(pwmHandle pwmHdl);
 pwmHandle createPWM(int pwmPin, unsigned long period, int polarity);
 void startPwm(pwmHandle pwmHdl);
 void stopPwm(pwmHandle pwmHdl);
+void deletePwm(pwmHandle pwmHdl);
 int runStatus(pwmHandle pwmHdl);
 void setPwmDuty(pwmHandle pwmHdl, unsigned long duty);
 

@@ -11,6 +11,7 @@ public:
   int get(int fd);
   void set(int fd, int val);
   int export_pin(int pin, int dir);
+  int unexport_pin(int pin);
 
 private:
   pinctl() {}

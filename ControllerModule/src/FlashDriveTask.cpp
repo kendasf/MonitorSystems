@@ -234,6 +234,7 @@ void uSD_flash_monitor_init(void)
 
 void *MemoryMonTask(void *argPtr)
 {
+   char *resp;
    bool copyComplete = false;
    bool driveWasPresent = false;
    unsigned long long flashDriveCheckTimer = GetTickCount(); // check every 30 seconds
@@ -254,7 +255,7 @@ void *MemoryMonTask(void *argPtr)
          flashDrivePresent = isFlashDrivePresent();   // 0, 1, 2
          if ( (flashDrivePresent > 0) && (false == copyComplete) )
          {
-            char *resp;
+            
             char driveDes[10] = "/dev/sd_1";
             int validKey = 0;
             driveWasPresent = true;
@@ -350,6 +351,19 @@ void *MemoryMonTask(void *argPtr)
             copyComplete = false;
             driveWasPresent = false;
             printf("Flash Drive has been removed\r\n");
+         }
+
+         // Admin can directly upload the update.vac to the /root folder
+         resp = SysCmd("ls /root/update.vac");             
+         if( NULL != resp )   /* An update file was found */
+         {
+            free(resp);            
+            if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
+            {
+               printf("Configuration Updated\r\n");
+               unlink("/root/update.vac");
+               fileDirty = 1;  // Flag to force system to reset device info
+            }
          }
       }
 

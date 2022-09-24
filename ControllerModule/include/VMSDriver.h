@@ -18,6 +18,7 @@
 //typedef struct BitmapS_ BitmapS;
 
 void VMSDriver_Initialize(void);
+void VMSDriver_shutdown(void);
 int VMSDriver_UpdateFrame(void);
 int VMSDriver_UpdateFrameFast(void);
 

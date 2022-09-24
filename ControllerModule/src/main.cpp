@@ -94,8 +94,8 @@ int ActiveEthSock = 0;
 
 void readLux(void);
 int LuxmeterAvgPos = 0;
-float LuxMeterLPF = 0.0;
-float lastLuxMeterLPF = 0.0;
+float LuxMeterLPF = 100.0;
+float lastLuxMeterLPF = 100.0;
 
 int LastRefreshTime = 0;
 int pwmMonitorFd = -1;
@@ -274,37 +274,43 @@ char *RecvMessages(int hSock, long lTmoMs)
    return retval;
 }
 
+void doShutdown()
+{
+   VMSDriver_Clear(true);
+   autoDimThreadRunning = 0;
+   stopPwm(thePWMHandle);
+   deletePwm(thePWMHandle);
+   VMSDriver_shutdown();
+   sleep(2);
+}
+
 // Catching Traps.  Clearing display before Exit
 // Also could trap differently for each type of trap
 void TrapCtlC(int sigval)
 {
    printf("TrapCtlC\nClearing Display\n");
-   VMSDriver_Clear(true);
-   autoDimThreadRunning = 0;
+   doShutdown();
    exit(sigval);
 }
 
 void TrapKill6(int sigval)
 {
    printf("TrapKill6\nClearing Display\n");
-   VMSDriver_Clear(true);
-   autoDimThreadRunning = 0;
+   doShutdown();
    exit(sigval);
 }
 
 void TrapKill9(int sigval)
 {
    printf("TrapKill9\nClearing Display\n");
-   VMSDriver_Clear(true);
-   autoDimThreadRunning = 0;
+   doShutdown();
    exit(sigval);
 }
 
 void TrapKill15(int sigval)
 {
    printf("TrapKill15\nClearing Display\n");
-   VMSDriver_Clear(true);
-   autoDimThreadRunning = 0;
+   doShutdown();
    exit(sigval);
 }
 
@@ -430,10 +436,10 @@ int main(int argc, char *argv[])
    camPwrPin = pinctl::inst().export_pin(CAMERA_POWER, 0);
    pinctl::inst().set(camPwrPin, 0);
 
-   for (i = 0; i < 100; i++)  // Preload lux LPF
+   for (i = 0; i < 500; i++)  // Preload lux LPF
    {
       readLux();
-      usleep(300);
+      usleep(500);
    }
 
    res = pthread_create(&autoDimThreadID, NULL, DoAutoDimming, NULL);
@@ -445,7 +451,13 @@ int main(int argc, char *argv[])
 
    CommProt_init();
 
-   if (argc > 1)
+   if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
+   {
+      printf("Configuration Updated\r\n");
+      unlink("/root/update.vac");
+   }
+
+   if (argc > 1)  // May augment update.vac to have camera IP stuff
    {
       CAMERA_IP_ADDR = argv[1];
    }
@@ -461,14 +473,13 @@ int main(int argc, char *argv[])
 
 
    /* The following line is a dirty hack. Why, you ask? Because some idiot who wrote vmsd which starts vms process did not give
-// vms process proper stdin, so its filedescription "0" is left unused. And when the first socket is created, it gets filedesc of zero.
-// For some reason, the code does not work when filedesc for socket is zero. So lets create dummy UDP server socket that will 
-// have filedesc zero and then everything else magically works.
-// - Niksa, 2016-11-11
+   // vms process proper stdin, so its filedescription "0" is left unused. And when the first socket is created, it gets filedesc of zero.
+   // For some reason, the code does not work when filedesc for socket is zero. So lets create dummy UDP server socket that will 
+   // have filedesc zero and then everything else magically works.
+   // - Niksa, 2016-11-11
 
-hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin correctly
-
-*/
+   hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin correctly
+   */
 
    hSock = GetUdpServerHandle(mainPort);
 
@@ -476,12 +487,6 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
    {
       printf("Socket allocation failure\n");
       return -1;
-   }
-
-   if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
-   {
-      printf("Configuration Updated\r\n");
-      unlink("/root/update.vac");
    }
 
 // Config for shutdown ping usage
@@ -496,7 +501,7 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
 
    FileRoutines_readDeviceInfo(&deviceInfo);
 
-   VMSDriver_RunStartSequence();
+   
 
    tcpListenerFd = getTcpListen(SERVER_PORT_NUM, 1);
    
@@ -523,6 +528,8 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
    http::inst().start_web_services("/root/html", "/store", "/tmp", 80);
    printf("Before program loop\n");
 
+   VMSDriver_RunStartSequence();
+
    while (1)
    {
       for (int i = 0; i < 10; i++)
@@ -547,6 +554,7 @@ hSock = GetUdpServerHandle(12345);		No longer needed - systemd handles stdin cor
       if (fileDirty)
       {
          fileDirty = 0;
+         VMSDriver_Clear(true);
          FileRoutines_readDeviceInfo(&deviceInfo);
       }
 
@@ -1192,7 +1200,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
       {
          LastRefreshTime = SecondsTimer;
          // set LE signal
-         SetDisplayLE();
+         // SetDisplayLE();
       }
    }
 }
@@ -1442,6 +1450,7 @@ void waitPwmOff(void)
 int maxF = 0;        // 1928 = ~25 lux
 int minF = 4096;     // 1765 = ~574 lux
 int m_point[2] = {1778, 1989};
+int luxPrint = 0;
 void readLux(void)
 {
    int rawLvl;
@@ -1455,14 +1464,7 @@ void readLux(void)
    //float m = (y1 - y2 ) / ( x1 - x2 );
    float b = (y1) - ( m * x1 );
 
-   if (getPwmDuty(thePWMHandle) != PWM_PERIOD) // IN the off chance PWM is off skip check
-   {
-      // Not 0 is LED on 1 = LED off
-      while (pinctl::inst().get(pwmMonitorFd) == 1)
-         ; // Off wait for beginning of next off
-      while (pinctl::inst().get(pwmMonitorFd) == 0)
-         ; // Wait until its off
-   }
+   waitPwmOff();
 
    rawLvl = adc::inst().readVal(4);             // Low number is max LUX  - diode grounds resistor and thus takes voltage down
    if (rawLvl > 0)
@@ -1500,9 +1502,12 @@ void readLux(void)
          LuxMeterLPF = (LuxMeterLPF * 0.97) + (lux * 0.03);
       }
 
-      // printf("Raw ADC %d\t", rawLvl);
-      // printf("Min found %d\t Max Found %d\t", minF, maxF);
-      // printf("LPF Lux = %0.3f\n", LuxMeterLPF);
-
+      luxPrint++;
+      if( luxPrint > 25 )
+      {
+         printf("Raw ADC Read %d\t LPF Lux result = %0.3f\n", rawLvl, LuxMeterLPF);
+         // printf("Min found %d\t Max Found %d\t", minF, maxF);
+         luxPrint = 0;
+      }
    }
 }

@@ -148,12 +148,12 @@ void initPWMDriver( void )
 		pwmCtl = (pwmHandle)malloc(sizeof(struct pwm_control_block) * pwmCount);
 		pwmAvailable = 1;
 
-		for( int i = 0; i < pwmCount; i++)
-		{
-			sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", i);					/* Add PWM channel */
-			resp = SysCmd(cmd);
-			if( resp != NULL) free(resp);
-		}
+		// for( int i = 0; i < pwmCount; i++)
+		// {
+		// 	sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", i);					/* Add PWM channel */
+		// 	resp = SysCmd(cmd);
+		// 	if( resp != NULL) free(resp);
+		// }
 	}
 	else
 	{
@@ -187,11 +187,19 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 
 		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmPin);				/* Remove PWM 0  */
 		resp = SysCmd(cmd);
-		if (resp != NULL) free(resp);
+		if (resp != NULL) 
+		{	
+			printf("%s", resp);
+			free(resp);
+		}
 
 		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/export", pwmPin);					/* Add PWM 0 */
 		resp = SysCmd(cmd);
-		if (resp != NULL) free(resp);
+		if (resp != NULL) 
+		{	
+			printf("%s", resp);
+			free(resp);
+		}
 
 
 
@@ -233,6 +241,21 @@ void startPwm(pwmHandle pwmHdl)
 		resp = SysCmd(cmd);
 		pwmHdl->run = 1;
 		if (resp != NULL) free(resp);	
+	}
+	else {
+		printf("PWM not allocated\n");
+	}
+}
+
+void deletePwm(pwmHandle pwmHdl)
+{	
+	char cmd[80];
+	char* resp;
+	if(NULL != pwmHdl )
+	{
+		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmHdl->pin);				/* Remove PWM 0  */
+		resp = SysCmd(cmd);
+		if (resp != NULL) free(resp);
 	}
 	else {
 		printf("PWM not allocated\n");
