@@ -700,35 +700,35 @@ free(content);
 const unsigned char marker[4] = {0xFF, 0xD8, 0xFF, 0xE0};
 const unsigned char endMarker[2] = {0xFF, 0xD9};
 
-static int findMarker(unsigned char *data, int size)
-{
-   int index = 0;
-   int i;
-   for (i = 0; i < size; i++)
-   {
-      index = i;
-      if (memcmp(marker, &data[i], sizeof(marker)) == 0)
-      {
-         break;
-      }
-   }
-   return index;
-}
+// static int findMarker(unsigned char *data, int size)
+// {
+//    int index = 0;
+//    int i;
+//    for (i = 0; i < size; i++)
+//    {
+//       index = i;
+//       if (memcmp(marker, &data[i], sizeof(marker)) == 0)
+//       {
+//          break;
+//       }
+//    }
+//    return index;
+// }
 
-static int findEndMarker(unsigned char *data, int size)
-{
-   int index = 0;
-   int i;
-   for (i = size - sizeof(endMarker); i > 0; i--)
-   {
-      if (memcmp(endMarker, &data[i], sizeof(endMarker)) == 0)
-      {
-         index = size - (i + sizeof(endMarker));
-         break;
-      }
-   }
-   return index;
-}
+// static int findEndMarker(unsigned char *data, int size)
+// {
+//    int index = 0;
+//    int i;
+//    for (i = size - sizeof(endMarker); i > 0; i--)
+//    {
+//       if (memcmp(endMarker, &data[i], sizeof(endMarker)) == 0)
+//       {
+//          index = size - (i + sizeof(endMarker));
+//          break;
+//       }
+//    }
+//    return index;
+// }
 
 #define HTTP_RESPONSE_LEN 0x9A
 #define BOUNDRY_HEADER_LEN (74)

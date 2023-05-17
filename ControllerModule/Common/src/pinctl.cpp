@@ -107,11 +107,12 @@ int pinctl::export_pin(int pin, int dir) {
   //   printf("%s ERROR: %s - %d\r\n", path, strerror(errno), errno);
   // }
 
+  printf("Setting up pin %d\n", pin);
   sprintf(cmd, "echo %d > /sys/class/gpio/export", pin);
   resp = SysCmd(cmd);
   if (resp != NULL) 
   {
-    printf("%s", resp);
+    printf("%s - pin %d", resp, pin);
     free(resp);	
   }
 
@@ -130,7 +131,7 @@ int pinctl::export_pin(int pin, int dir) {
   resp = SysCmd(cmd);
   if (resp != NULL) 
   {
-    printf("%s", resp);
+    printf("%s - pin %d", resp, pin);
     free(resp);	
   }
 
@@ -149,11 +150,11 @@ int pinctl::export_pin(int pin, int dir) {
   //   printf("%s ERROR: %s - %d\r\n", path, strerror(errno), errno);
   // }
 
-  sprintf(cmd, "chmod %d /sys/class/gpio/gpio%d/value", (direct == 0) ? S_IWUSR | S_IWOTH | S_IWGRP : S_IRUSR | S_IRGRP | S_IROTH, pin);
+  sprintf(cmd, "chmod 666 /sys/class/gpio/gpio%d/value", pin);
   resp = SysCmd(cmd);
   if (resp != NULL) 
   {
-    printf("%s", resp);
+    printf("%s - pin %d", resp, pin);
     free(resp);	
   }
 

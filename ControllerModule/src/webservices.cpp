@@ -30,6 +30,8 @@
 #include <thread>
 #include <mutex>
 
+#include <sys/resource.h>
+
 extern float SupplyVoltageLevel;
 
 const char* key = "GeoluxDereSve";
@@ -85,6 +87,24 @@ webservices::webservices() {
   add_web_api("/get_last_snapshot", &webservices::get_last_snapshot);
 
   new std::thread([]() {
+
+    sched_param param;
+    int res;
+    pthread_attr_t threadAttrs;
+    
+    pthread_attr_init(&threadAttrs);
+
+    param.sched_priority = 20;
+    res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+    //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    if( 0 != res )
+    {
+        strerror(errno);
+    }
+
+    pthread_setname_np( pthread_self() , "Web Thread");
+
+    printf("<5>Starting Web Server Thread\n\n");
     while(true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(500));
 

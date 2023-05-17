@@ -5,7 +5,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
-#include <semaphore.h>
+
+#include <time.h>
 #include "pinctl.h"
 #include "pwm.h"
 
@@ -17,22 +18,12 @@ enum
 	pwm_OK
 };
 
-struct pwm_control_block
-{
-	int fd;
-	int polarity;
-	unsigned long period;
-	unsigned long duty;
-	int run;
-	char pwmStatus;
-	char *pwmDutyFile;
-	int pin;
-	sem_t pwmUpdateLock;
-};
+
 
 pwmHandle pwmCtl;
 int pwmCount = 0;
 int pwmAvailable = 0;
+int pwmMonitorFd = -1;
 
 static char* SysCmd(char *Command)
 {
@@ -117,7 +108,6 @@ static int createPwmEntry(int pwmPin, unsigned long period, int polarity)
 		index++;
 		pwmCtl[index].pin = pwmPin;
 		pwmCtl[index].period = period;
-		pwmCtl[index].polarity = polarity;
 		pwmCtl[index].pwmStatus = pwm_Unknown;
 	}	
 
@@ -201,13 +191,18 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 			free(resp);
 		}
 
+		sleep(2);  // Allow time for OS to allocate
 
-
+		pwmCtl[index].polarity = (char *)malloc(20 * sizeof(char) );
 		if( 0 != polarity )
 		{
-			snprintf(polarityType, 20, "inversed");
+			snprintf(pwmCtl[index].polarity, 20, "inversed");
 		}
-		sprintf(cmd, "echo %s > /sys/class/pwm/pwmchip0/pwm-0:%d/polarity", polarityType, pwmPin);		/* Set polarity */
+		else
+		{
+			snprintf(pwmCtl[index].polarity, 20, "normal");
+		}
+		sprintf(cmd, "echo %s > /sys/class/pwm/pwmchip0/pwm-0:%d/polarity", pwmCtl[index].polarity, pwmPin);		/* Set polarity */
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);	
 
@@ -215,9 +210,9 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 		resp = SysCmd(cmd);
 		if (resp != NULL) free(resp);	
 
-		size_t needed = sprintf(fname, "/sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", pwmPin);						/* Open PWM at duty cycle*/
-		pwmCtl[index].pwmDutyFile = (char *)malloc( needed );
-		sprintf(pwmCtl[index].pwmDutyFile, "/sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", pwmPin);
+		sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", 0ul, pwmPin);		/* Set duty of PWM*/
+		resp = SysCmd(cmd);
+		if (resp != NULL) free(resp);
 		
 		sem_init (&pwmCtl[index].pwmUpdateLock, 0, 1);
 	}
@@ -231,10 +226,28 @@ pwmHandle createPWM(int pwmPin, unsigned long period, int polarity)
 	return &pwmCtl[index];	
 }
 
+void deletePwm(pwmHandle pwmHdl)
+{	
+	char cmd[80] = {0};
+	char* resp = NULL;
+	if(NULL != pwmHdl )
+	{
+		pwmHdl->run = 1;
+		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmHdl->pin);				/* Remove PWM 0  */
+		resp = SysCmd(cmd);
+		if (resp != NULL) free(resp);
+	}
+	else {
+		printf("PWM not allocated\n");
+	}
+	sem_destroy(&pwmHdl->pwmUpdateLock);
+	free(pwmHdl->polarity);
+}
+
 void startPwm(pwmHandle pwmHdl)
 {
-	char cmd[80];
-	char* resp;
+	char cmd[80] = {0};
+	char* resp = NULL;
 	if(NULL != pwmHdl )
 	{
 		sprintf(cmd, "echo 1 > /sys/class/pwm/pwmchip0/pwm-0:%d/enable", pwmHdl->pin);
@@ -247,38 +260,57 @@ void startPwm(pwmHandle pwmHdl)
 	}
 }
 
-void deletePwm(pwmHandle pwmHdl)
-{	
-	char cmd[80];
-	char* resp;
+void stopPwm(pwmHandle pwmHdl)
+{
+	char cmd[80] = {0};
+	char* resp = NULL;
 	if(NULL != pwmHdl )
 	{
-		sprintf(cmd, "echo %d > /sys/class/pwm/pwmchip0/unexport", pwmHdl->pin);				/* Remove PWM 0  */
+		pwmHdl->run = 1;
+		sprintf(cmd, "echo 0 > /sys/class/pwm/pwmchip0/pwm-0:%d/enable", pwmHdl->pin);
 		resp = SysCmd(cmd);
-		if (resp != NULL) free(resp);
+		if (resp != NULL) free(resp);	
+		
 	}
 	else {
 		printf("PWM not allocated\n");
 	}
 }
 
-void stopPwm(pwmHandle pwmHdl)
+unsigned long pwmDutyLast = -1ul;
+unsigned long tempPWM = 0;
+void haltPWMOutput(pwmHandle pwmHdl)
 {
 	char cmd[80];
-	char* resp;
-	if(NULL != pwmHdl )
-	{
-		//close(pwmHdl->fd);
-		sprintf(cmd, "echo 0 > /sys/class/pwm/pwmchip0/pwm-0:%d/enable", pwmHdl->pin);
-		resp = SysCmd(cmd);
-		pwmHdl->run = 0;
-		sem_destroy(&pwmHdl->pwmUpdateLock);
-		if (resp != NULL) free(resp);	
-	}
-	else {
-		printf("PWM not allocated\n");
-	}
+	char *resp;
+
+	sem_wait(&pwmHdl->pwmUpdateLock);
+	tempPWM = pwmDutyLast;
+	sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", 0ul, pwmHdl->pin);		/* Set duty of PWM*/
+	resp = SysCmd(cmd);
+	if (resp != NULL) free(resp);
 }
+
+void resumePWMOutput(pwmHandle pwmHdl)
+{
+	char cmd[80];
+	char *resp;
+
+	sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", tempPWM, pwmHdl->pin);		/* Set duty of PWM*/
+	resp = SysCmd(cmd);
+	if (resp != NULL) free(resp);
+	sem_post(&pwmHdl->pwmUpdateLock);
+}
+
+
+void waitPwmOff(pwmHandle pwmHdl)
+{
+	do{
+		; // Off wait for beginning of next off
+	}
+   while (1 == pinctl::inst().get(pwmMonitorFd));
+}
+
 
 int runStatus(pwmHandle pwmHdl)
 {
@@ -295,60 +327,62 @@ int runStatus(pwmHandle pwmHdl)
 
 unsigned long  getPwmDuty(pwmHandle pwmHdl)
 {
+	unsigned long retval = 0;
 	if(NULL != pwmHdl )
 	{
-		
-		/*
-		int err;
-		memset(dutyStr, 0, sizeof(dutyStr));
-		lseek(pwmHdl->fd, 0, SEEK_SET);
-		err = read(pwmHdl->fd, dutyStr, sizeof(dutyStr));
-		if (err < 0)
-			printf("getPwmDuty ERR: %d - %s\r\n", errno, strerror(errno));
-		else
-			retval = atoi(dutyStr);
-		*/
-		return pwmHdl->duty;
+		retval = pwmHdl->duty;
 	}
 	else {
 		printf("PWM not allocated\n");
 	}
 
-	return (unsigned long)-1;
+	return retval;
 }
 
-unsigned long pwmDutyLast = 0;
+
 void setPwmDuty(pwmHandle pwmHdl, unsigned long duty)
 {
 	char dutyStr[20] = {0};
 	int err;
 	char cmd[80];
 	char *resp;
+	struct timespec sleepDelay, timeLeft;
+
+	sleepDelay.tv_nsec = (1) * (1000) * (1000);                       // 1ms sleep cycle
+   sleepDelay.tv_sec = 0;
 
 	if(NULL != pwmHdl )
 	{
-		sem_wait(&pwmHdl->pwmUpdateLock);
-		if( pwmDutyLast != duty)
+		if( 1 == pwmHdl->run)
 		{
-			pwmHdl->duty = (unsigned int)-1;
-			sprintf(cmd, "echo %lu > %s", duty, pwmHdl->pwmDutyFile);		/* Set period of PWM*/
-			resp = SysCmd(cmd);
-			if (resp != NULL) 
+			sem_wait(&pwmHdl->pwmUpdateLock);
+			if( pwmDutyLast != duty )
 			{
-				printf("setPwmDuty ERR: - %s\r\n", resp);
-				free(resp);
+				sprintf(cmd, "echo %s > /sys/class/pwm/pwmchip0/pwm-0:%d/polarity", pwmHdl->polarity, pwmHdl->pin);		/* Set polarity */
+				resp = SysCmd(cmd);
+				if (resp != NULL) free(resp);
+
+				pwmHdl->duty = 0U;
+				sprintf(cmd, "echo %ld > /sys/class/pwm/pwmchip0/pwm-0:%d/duty_cycle", duty, pwmHdl->pin);		/* Set duty of PWM*/
+				resp = SysCmd(cmd);
+				if (resp != NULL) 
+				{
+					printf("setPwmDuty ERR: - %s\r\n", resp);
+					free(resp);
+				}
+				else
+				{
+					printf("<6>PWM set - %lu\n", duty);
+					pwmHdl->duty = duty;
+					pwmDutyLast = duty;
+				}
 			}
-			else
-			{
-				printf("PWM set - %lu\n", duty);
-				pwmHdl->duty = duty;
-				pwmDutyLast = duty;
-			}
+			sem_post(&pwmHdl->pwmUpdateLock);
 		}
-		sem_post(&pwmHdl->pwmUpdateLock);
 	}
 	else {
 		printf("PWM not allocated\n");
 	}
+	nanosleep(&sleepDelay, &timeLeft);
 }
 

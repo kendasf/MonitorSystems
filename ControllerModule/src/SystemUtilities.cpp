@@ -667,9 +667,12 @@ void InitPwmTask(void)
         if (status != 0)
                 printf("pthread_attr_init\n");
 
+        printf("<5>Starting PWM monitor thread\n\n");
         status = pthread_create(&pwm_thread_id, &attr, &PwmTask, NULL);
         if (status != 0)
                 printf("pthread create failed for Listen Task\n");
+        
+        status = pthread_setname_np(pwm_thread_id, "PWM Thread");
 
         pthread_attr_destroy(&attr);
 }

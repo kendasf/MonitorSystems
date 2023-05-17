@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <time.h>
 
+#define JOURNALD_LEVEL6 "<6>"
 #define JOURNALD_LEVEL "<5>"
 
 #define fdelete unlink

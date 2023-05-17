@@ -113,10 +113,11 @@ void uart::write(const char* text) {
 }
 
 int uart::read(char* chr) {
+   size_t numBytes = 1;
    if (_fd <= 0)
       return 0;
 
-   int err = ::read(_fd, chr, 1);
+   int err = ::read(_fd, chr, numBytes);
    if (err <= 0) {
       if (_file) {
          close(_fd);

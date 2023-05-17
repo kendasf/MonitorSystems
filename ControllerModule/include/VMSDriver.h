@@ -6,11 +6,13 @@
 #include "main.h"
 
 #define VMS_WIDTH		8
+
 #ifdef LARGER_DOTS
-#define VMS_HEIGHT		12
+   #define VMS_HEIGHT		12
 #else
-#define VMS_HEIGHT		10
+   #define VMS_HEIGHT		10
 #endif
+
 #define VMS_PANELS		36
 
 #define MAX_BMP_WIDTH	60
@@ -18,6 +20,8 @@
 //typedef struct BitmapS_ BitmapS;
 
 void VMSDriver_Initialize(void);
+void VMSDriver_LockDisplay();
+void VMSDriver_UnlockDisplay();
 void VMSDriver_shutdown(void);
 int VMSDriver_UpdateFrame(void);
 int VMSDriver_UpdateFrameFast(void);
@@ -29,8 +33,8 @@ void VMSDriver_Invalidate(void);
 
 void VMSDriver_GetDimensions(int panelsConfig, int& width, int& height);
 
-void VMSDriver_SetPixel(int x, int y);
-void VMSDriver_ClearPixel(int x, int y);
+void VMSDriver_SetPixel(unsigned int x, unsigned int y);
+void VMSDriver_ClearPixel(unsigned int x, unsigned int y);
 
 void VMSDriver_Clear(bool doUpdate);
 void VMSDriver_White(unsigned char val);

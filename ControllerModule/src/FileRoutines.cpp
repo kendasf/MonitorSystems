@@ -608,6 +608,7 @@ int FileRoutines_autoconfFromCard(char* fname)
 	//
 	// read autoconf file
 	//
+	printf("Attempting Autoconfig from update.vac\n\n");
 	fh = _sys_open(fname, OPEN_R);
 	if (fh == -1)
 	{

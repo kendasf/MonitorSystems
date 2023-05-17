@@ -24,7 +24,7 @@
 // #include "xbeeInterface.h"
 #include "../Common/inc/timer.h"
 #include "../Common/inc/pinctl.h"
-#include "../Common/inc/pwm.h"
+
 #include "FlashDriveTask.h"
 #include "cameraFuncts.h"
 // #define ASIO_STANDALONE
@@ -40,8 +40,9 @@
 
 #include "../http/efgy_http.h"
 #include "http.h"
+#include <sys/resource.h>
 
-#define PWMMAX 36
+
 
 static const int DIM[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -67,6 +68,7 @@ const int LookupLux[541] = {
 
 #define NEW_IF_BOARD
 #define EXTERNAL_DRIVEN_SIREN
+// #define CAMERA_ENABLED
 
 static FILE *fpErrLog = NULL;
 
@@ -76,7 +78,7 @@ bool HaveExternalFlash = false;
 
 int fileDirty = 1;
 int CurrentlyDisplayedSpeed = -1;
-int lastSpeedToDisplay = -1;
+unsigned int lastSpeedToDisplay = -1;
 int CurrentlyDisplayedFrameIdx = 0;
 int AnimationFrameIdx = 0;
 unsigned long long CurrentlyDisplayedFrameStart = 0;
@@ -92,21 +94,28 @@ int LastTestModeBitmap = -1;
 int TestModeDuration = 0;
 int ActiveEthSock = 0;
 
-void readLux(void);
+void *readLuxThread( void *argPtr );
+char readLuxThreadRunning = 0;
+pthread_t readLuxThreadID;
 int LuxmeterAvgPos = 0;
 float LuxMeterLPF = 100.0;
 float lastLuxMeterLPF = 100.0;
 
 int LastRefreshTime = 0;
-int pwmMonitorFd = -1;
 
-unsigned long pwmDuty = 0; // 95%;
+
 pwmHandle thePWMHandle = NULL;                                 // Control PWM
 
 void* DoAutoDimming( void *argPtr );
 pthread_t autoDimThreadID;
 char autoDimThreadRunning = 0;
 char disablePWM = 0;
+
+void *readVoltageThread(  void *argPtr );
+char readVoltageThreadRunning = 0;
+pthread_t readVoltageThreadID;
+int voltageLockOut = 0;
+
 
 unsigned short UDPCallback(unsigned char socket, unsigned char *remip, unsigned short remport, unsigned char *buf, unsigned short len) { return 0; }
 
@@ -166,48 +175,32 @@ std::vector<gnode::connection_ptr> gnode::connection::_connections;
 //        2 = 1/4% 0.25%
 //        1 = 1/5% 0.20%
 
-
-unsigned long scalePercentage(unsigned long maxValue, unsigned long percentage)
-{
-   /*  Ex max is 30 and value put in is 100%  
-   PWMMAX * 100% = 31, PWMMAX * 50% = 16
-   */
-   unsigned long retval = 0;
-   float calc = (float)maxValue * ((float)percentage / 100.0);
-   
-   retval = (unsigned long)calc;
-   if( retval < 1 )
-   {
-      retval = 1;
-   }
-   // printf("Max = %lu, Perc = %lu, Res %lu\n", maxValue, percentage, retval);
-   return retval;
-}
-
-unsigned long calcPwmDuty(int dutyCyclePercent)
+unsigned long calcPwmDuty(int dutyCyclePercent)                /* For Linux this converts Duty % to ns */
 {
    unsigned long calcValue = 0;
-   unsigned long setVal = 0;
    float newValue = 0.0;
+   float decimalPct = 0.0;
 
-#if 0 // This could give a better resolution for low light
-if (dutyCyclePercent <= 5)
-calcValue = PWM_PERIOD - (PWM_PERIOD/500)/(6 - dutyCyclePercent);
-else if (dutyCyclePercent <= 10)
-calcValue = PWM_PERIOD - ((dutyCyclePercent - 5) * 2) * (PWM_PERIOD/500);
-else
-calcValue = PWM_PERIOD - (dutyCyclePercent * (PWM_PERIOD/500));
-#endif
    if( dutyCyclePercent > 0)
    {
-      setVal = 100 - dutyCyclePercent;
-      newValue = PWM_PERIOD * (setVal / 100.0);
-      calcValue = (unsigned long)newValue;
+      //printf("Trying %d duty cycle\t\t", dutyCyclePercent);
+      // PWM_PERIOD is 100% duty cycle and is in ns
+      decimalPct = (float)PWMMAX / 100.0;                      // 0.3
+      newValue = decimalPct * (float)PWM_PERIOD;      // 13 888 888 * 0.3 =  4 166 666
+      //printf("Max PWM %2.2f\t", newValue);
+
+      decimalPct = (float)dutyCyclePercent / 100.0;            // 50 = 0.5
+      newValue = newValue * decimalPct;               // 4 166 666 * 0.5 = 2 083 333
+      //printf("Decimal PWM %2.2f\t", newValue);
+
+      calcValue = (unsigned long)(newValue);          // 1 440 000 ns
+      //printf("Result PWM %lu ns\n\n", calcValue);
    }
    else
    {
-      calcValue = 0;
+      calcValue = 1;
    }
+
    return calcValue;
 }
 
@@ -267,6 +260,7 @@ char *RecvMessages(int hSock, long lTmoMs)
       char *postMsg = udpRead(hSock, &len, 50);
       if (postMsg != NULL)
       {
+         printf("<7>UDP mesage rx'ed\n");
          retval = postMsg;
       }
    }
@@ -280,6 +274,8 @@ void doShutdown()
    autoDimThreadRunning = 0;
    stopPwm(thePWMHandle);
    deletePwm(thePWMHandle);
+   adc::inst().delete_channel(4);
+   adc::inst().delete_channel(2);
    VMSDriver_shutdown();
    sleep(2);
 }
@@ -288,28 +284,28 @@ void doShutdown()
 // Also could trap differently for each type of trap
 void TrapCtlC(int sigval)
 {
-   printf("TrapCtlC\nClearing Display\n");
+   printf("<2>TrapCtlC\nClearing Display\n");
    doShutdown();
    exit(sigval);
 }
 
 void TrapKill6(int sigval)
 {
-   printf("TrapKill6\nClearing Display\n");
+   printf("<2>TrapKill6\nClearing Display\n");
    doShutdown();
    exit(sigval);
 }
 
 void TrapKill9(int sigval)
 {
-   printf("TrapKill9\nClearing Display\n");
+   printf("<2>TrapKill9\nClearing Display\n");
    doShutdown();
    exit(sigval);
 }
 
 void TrapKill15(int sigval)
 {
-   printf("TrapKill15\nClearing Display\n");
+   printf("<2>TrapKill15\nClearing Display\n");
    doShutdown();
    exit(sigval);
 }
@@ -380,9 +376,8 @@ int main(int argc, char *argv[])
    int i;
    // unsigned long long loopTime = 0;
    int secondsTimer = 0;
-   int speedToDisplay = 0;
+   unsigned int speedToDisplay = 0;
    int bStandby = 0;
-   int voltageTooLow = 0;
    int hSock = -1;
    char *pStatus;
    int initval = 0;
@@ -394,7 +389,9 @@ int main(int argc, char *argv[])
    int tcpListenerFd = -1;
    int tcpSocketFd = -1;
    int mainPort = 6800;
+#ifdef CAMERA_ENABLED
    int cameraBusy = 0;
+#endif
    int res = 0;
    char *inMsg = NULL;
    char pinSet = 0;
@@ -402,11 +399,25 @@ int main(int argc, char *argv[])
    long loopMax = 0;
    long loopDur = 0;
 
+   // int which = PRIO_PROCESS;
+   // id_t pid;
+   // int priority = 0;
+
+    
+   // pid = getpid();
+   // setpriority(which, pid, priority);
+
+   pthread_setname_np( pthread_self() , "Main Thread");
+
+   printf("<4>Starting Main Application\n\n");
+
 #ifdef USE_SHUTDOWN
    int shutdownPinFd;
    int shutdownEnabled = 0;
 #endif
 
+   setvbuf(stdout, NULL, _IONBF, 0); 
+   
    signal(SIGINT, TrapCtlC);   // Setup signal trap for child exit
    signal(SIGABRT, TrapKill6); // Setup signal trap for child exit
    signal(SIGTERM, TrapKill15);
@@ -415,17 +426,13 @@ int main(int argc, char *argv[])
 
    //SysCmd("/root/init_peripherals.sh");  // Handle by systemd now
 
-   // VMS Driver Init here to clear screen before PWM enabled
-   VMSDriver_Initialize();
-   
-   initPWMDriver(); /* This sets up the structures to drive the PWM */
+   if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
+   {
+      printf("<5>Configuration Updated\r\n");
+      unlink("/root/update.vac");
+   }
 
-   // init PWM
-   thePWMHandle = createPWM(0, pwmPeriod, 0);
-   setPwmDuty(thePWMHandle, 0ul);
-   startPwm(thePWMHandle);
-
-   
+   FileRoutines_readDeviceInfo(&deviceInfo);
 
    printf(JOURNALD_LEVEL "Setting ADC 4 for Lux Meter\n");
    adc::inst().enable_channel(4); // luxmeter
@@ -433,29 +440,78 @@ int main(int argc, char *argv[])
    printf(JOURNALD_LEVEL "Setting ADC 2 for Vin Monitor\n");
    adc::inst().enable_channel(2); // Vin
 
+   printf(JOURNALD_LEVEL "Setting Pin 47 for external power fet\n");
    camPwrPin = pinctl::inst().export_pin(CAMERA_POWER, 0);
    pinctl::inst().set(camPwrPin, 0);
 
-   for (i = 0; i < 500; i++)  // Preload lux LPF
-   {
-      readLux();
-      usleep(500);
-   }
+   initPWMDriver(); /* This sets up the structures to drive the PWM */
 
-   res = pthread_create(&autoDimThreadID, NULL, DoAutoDimming, NULL);
-   if( res != 0 )
-   {
-      printf("%d - %s", res, strerror(res));
-      return -1;
-   }
+   // init PWM
+   thePWMHandle = createPWM(0, pwmPeriod, 1);
+   setPwmDuty(thePWMHandle, 0ul);
+   startPwm(thePWMHandle);
+   
+  // VMS Driver Init here to clear screen before PWM enabled
+   VMSDriver_Initialize();
 
    CommProt_init();
+#define luxThread
+#ifdef luxThread
+   /**************************  Read LUX A2D ********** */
+   pthread_attr_t threadAttrs;
+   pthread_attr_init(&threadAttrs);
+   int stackSize = (PTHREAD_STACK_MIN + 0x4000);
+   pthread_attr_setstacksize(&threadAttrs, stackSize);
 
-   if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
+   printf("<2>Starting Lux Meter thread\n\n");
+   res = pthread_create(&readLuxThreadID, &threadAttrs, readLuxThread, NULL);
+   if( res != 0 )
    {
-      printf("Configuration Updated\r\n");
-      unlink("/root/update.vac");
+      printf("<2>%d - %s", res, strerror(res));
+      return -1;
    }
+   pthread_attr_destroy(&threadAttrs);
+
+   res = pthread_setname_np(readLuxThreadID, "Lux Thread");
+
+   sleep(5);  // Allow Lux to saturate ~333 samples
+#endif
+
+#define voltmeter
+#ifdef voltmeter
+   /**************************  Read Voltage A2D ********** */
+   pthread_attr_init(&threadAttrs);
+   pthread_attr_setstacksize(&threadAttrs, stackSize);
+
+   printf("<2>Starting Voltmeter Thread\n\n");
+   res = pthread_create(&readVoltageThreadID, &threadAttrs, readVoltageThread, NULL);
+   if( res != 0 )
+   {
+      printf("<2>%d - %s", res, strerror(res));
+      return -1;
+   }
+   pthread_attr_destroy(&threadAttrs);
+
+   res = pthread_setname_np(readVoltageThreadID, "DMM Thread");
+#endif
+
+#define autodim
+#ifdef autodim
+   /**************************  Autodimming Thread ********** */
+   pthread_attr_init(&threadAttrs);
+   pthread_attr_setstacksize(&threadAttrs, stackSize);
+
+   printf("<2>Starting Autodimmer thread\n\n");
+   res = pthread_create(&autoDimThreadID, &threadAttrs, DoAutoDimming, NULL);
+   if( res != 0 )
+   {
+      printf("<2>%d - %s", res, strerror(res));
+      return -1;
+   }
+   pthread_attr_destroy(&threadAttrs);
+
+   res = pthread_setname_np(autoDimThreadID, "AutoDim Thread");
+#endif 
 
    if (argc > 1)  // May augment update.vac to have camera IP stuff
    {
@@ -464,7 +520,7 @@ int main(int argc, char *argv[])
 
    if (sem_init(&displaySem, 0, 1) == -1)
    {
-      printf("sem_init(&displaySem): %s\n", strerror(errno));
+      printf("<3>sem_init(&displaySem): %s\n", strerror(errno));
       return -1;
    }
 
@@ -485,7 +541,7 @@ int main(int argc, char *argv[])
 
    if (hSock < 0)
    {
-      printf("Socket allocation failure\n");
+      printf("<3>Socket allocation failure\n");
       return -1;
    }
 
@@ -494,9 +550,9 @@ int main(int argc, char *argv[])
    shutdownPinFd = pinctl::inst().export_pin(GPIO(2, 13), 1);
    shutdownEnabled = pinctl::inst().get(shutdownPinFd);
    if (shutdownEnabled)
-      printf("Shutdown Monitor Enabled\n");
+      printf("<5>Shutdown Monitor Enabled\n");
    else
-      printf("Shutdown Monitor not enabled\n");
+      printf("<5>Shutdown Monitor not enabled\n");
 #endif
 
    FileRoutines_readDeviceInfo(&deviceInfo);
@@ -512,23 +568,39 @@ int main(int argc, char *argv[])
    // CreateCameraTask(5800, mainPort);
    Radar_CreateTask(5802, mainPort);
 
+   sched_param param;  
+   pthread_attr_init(&threadAttrs);
+
+   param.sched_priority = 6;
+   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   if( 0 != res )
+   {
+      strerror(errno);
+   }
+
    //
    // log system start event
    //
-   printf("Before add log\n");
+   printf("<6>Before add log\n");
    FileRoutines_addLog(LOG_SYSTEM_START, NULL);
 
-   printf("Before read info\n");
+   printf("<6>Before read info\n");
    FileRoutines_readDeviceInfo(&deviceInfo);
    fileDirty = 1;
 
    // loopTime = GetTickCount();
 
-   printf("Before start web services\n");
+   printf("<6>Before start web services\n");
    http::inst().start_web_services("/root/html", "/store", "/tmp", 80);
-   printf("Before program loop\n");
+   printf("<6>Before program loop\n");
 
    VMSDriver_RunStartSequence();
+
+   struct timespec delay, timeLeft;
+
+	delay.tv_nsec = (10) * (1000) * (1000);
+	delay.tv_sec = 0;
 
    while (1)
    {
@@ -544,7 +616,7 @@ int main(int argc, char *argv[])
       gnode::executor::proc_events();
       http::inst().proc_events();
 
-      pthread_yield();
+      //pthread_yield();
 
       // loopTime = GetTickCount();
 
@@ -555,54 +627,54 @@ int main(int argc, char *argv[])
       {
          fileDirty = 0;
          VMSDriver_Clear(true);
-         FileRoutines_readDeviceInfo(&deviceInfo);
+         FileRoutines_readDeviceInfo(&deviceInfo);    /* Do this a lot since this is where our memory is  */
       }
+      
 
       //
       // handle inbound data
       //
+#ifdef CAMERA_ENABLED
       inMsg = RecvMessages(hSock, 5); // short wait
       if (inMsg != NULL)
       {
          if (strstr(inMsg, "SNAP") != NULL)
          {
-            printf("Camera Ready\n");
+            printf("<6>Camera Ready\n");
             cameraBusy = 0;
          }
          free(inMsg);
          inMsg = NULL;
       }
-
+#endif
       // if TestModeDuration active then speed is ignored
       if (TestModeDuration == 0)
       {
          int speedBefore = speedToDisplay;
 
          speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
-
-         if (speedToDisplay < 0)
-            speedToDisplay = 0;
-
+         //printf("<7>\t\tDetection - - %d - -\n\n", speedToDisplay);
          if (lastSpeedToDisplay != speedToDisplay)
          {
             int blinkLimit = deviceInfo.blinkLimit;
             int displaySpeed = speedToDisplay;
 
             lastSpeedToDisplay = speedToDisplay;
-            printf("New Speed: %d mph\r\n", speedToDisplay);
+            printf("<6>\t\tNew Speed: %d mph\r\n", speedToDisplay);
             // Send Command to Camera
-            if (deviceInfo.unitType == 1)
-            {
+            if (deviceInfo.unitType == 1)                         /* Convert KPH to MPH */ 
+            {                                                     /* TODO - this gets truncated due to type */
                int addKph = 0;
-               blinkLimit = blinkLimit * 10000 / 16093; // Get BlinkLimit in MPH
-               displaySpeed = speedToDisplay * 16093;   // make sure to display KPH
+               blinkLimit = blinkLimit * 10000 / 16093;           // Get BlinkLimit in MPH
+               displaySpeed = speedToDisplay * 16093;             // make sure to display KPH
                if ((displaySpeed % 10000) >= 5000)
                   addKph = 1;
                displaySpeed /= 10000; // make sure to display KPH
                displaySpeed += addKph;
-               printf("Speed in KPH: %d\r\n", displaySpeed);
+               printf("<6>Speed in KPH: %d\r\n", displaySpeed);
             }
 
+#ifdef CAMERA_ENABLED
             if (speedToDisplay >= blinkLimit)
             {
                if (cameraBusy == 0)
@@ -621,7 +693,7 @@ int main(int argc, char *argv[])
                   sprintf(requestSnap, "SNAP,%s,%d,%d,%d", CAMERA_IP_ADDR, displaySpeed,
                           GetVideoDelayMSecs(speedToDisplay, &deviceInfo), image);
 
-                  printf("Send Speed: %d %s\n", speedToDisplay, requestSnap);
+                  printf("<6>Send Speed: %d %s\n", speedToDisplay, requestSnap);
                   udpSendLocal(hSock, 5800, requestSnap, strlen(requestSnap));
 
                   char debug[64];
@@ -632,7 +704,7 @@ int main(int argc, char *argv[])
                {
                   char requestSnap[128];
                   sprintf(requestSnap, "SPEEDADJ,%s,%d", CAMERA_IP_ADDR, displaySpeed);
-                  printf("Adjust Speed: %d, %s\n", speedToDisplay, requestSnap);
+                  printf("<6>Adjust Speed: %d, %s\n", speedToDisplay, requestSnap);
                   udpSendLocal(hSock, 5800, requestSnap, strlen(requestSnap));
 
                   char debug[64];
@@ -646,15 +718,16 @@ int main(int argc, char *argv[])
             {
                char adjustSpeed[128];
                sprintf(adjustSpeed, "SPEEDADJ,%s,%d", CAMERA_IP_ADDR, displaySpeed);
-               printf("Adjust Speed: %d, %s\n", speedToDisplay, adjustSpeed);
+               printf("<6>Adjust Speed: %d, %s\n", speedToDisplay, adjustSpeed);
                udpSendLocal(hSock, 5800, adjustSpeed, strlen(adjustSpeed));
             }
+#endif // CAMERA_ENABLEDs
          }
 
          if ((!bStandby) || DisplayFlashingCorners)
             DisplaySpeed(speedToDisplay, &deviceInfo);
          else
-            VMSDriver_Off();
+            VMSDriver_Clear(true);
 
 #ifdef EXTERNAL_DRIVEN_SIREN
          if( speedToDisplay > deviceInfo.blinkLimit )   /* Blink speed is the speed limit according to the webservices.cpp  */
@@ -666,15 +739,13 @@ int main(int argc, char *argv[])
             pinctl::inst().set(camPwrPin, 0);            
          }
 #endif
-
-         displayRelease();
       }
       else
       {
          CurrentlyDisplayedSpeed = 0;
       }
 
-      if ((UpdateLuxmeterCnt > 30) && (!voltageTooLow))  // Update auto dim every 30 seconds
+      if ((UpdateLuxmeterCnt > 30) )  // Update auto dim every 30 seconds
       {
 
          static int lastDutyCycleLevel = -1;
@@ -686,7 +757,7 @@ int main(int argc, char *argv[])
              (lastDutyCycleLevel == -1) ||
              (SetCameraModeCnt > 10 * 60))
          {
-            printf("PWM Duty Change: Last = %d Current = %d\n", lastDutyCycleLevel, PWMDutyCycle);
+            printf("<5>PWM Duty Change: Last = %d Current = %d\n", lastDutyCycleLevel, PWMDutyCycle);
             if (PWMDutyCycle > 30)
             {
                char request[50] = "DAYTIME,0,0,0,0";
@@ -741,59 +812,15 @@ int main(int argc, char *argv[])
             }
          }
 
-
-         int adcr = adc::inst().readVal(2);
-         float calcV = (adcr * (3.3 / 4096) * 8.5) + 0.225; // 0.225 is the measured line loss fudge factor
-
          if ((RTC_SEC % 2) == 0)
          {
-#ifdef NEW_IF_BOARD
-            // r1 = 1K r2 =7.5K VREF = 3.3
-            // Vmax In = 15.3V cause 4096 counts  = 3.3V = 8.5 * 1.8 = 15.3V
-            if (SupplyVoltageLevel == 0.0)
-               SupplyVoltageLevel = calcV;
-            else
-               // Poor mans LPF - will cause ramp up over about 20 Seconds
-               SupplyVoltageLevel = (SupplyVoltageLevel * 0.75) + (calcV * 0.25);
-#else
-            if (SupplyVoltageLevel == 0.0)
-               SupplyVoltageLevel = adcr / 254.0f;
-            else
-               SupplyVoltageLevel = (SupplyVoltageLevel + (2 * adcr / 266.1f)) / 3.0f;
-#endif
-
             // flash status LED to indicate that the software is running properly
             if (TestModeDuration > 0)
             {
                pinSet = ~pinSet;
                pinctl::inst().set(camPwrPin, pinSet);
             }
-            
-         }
-
-         /*
-if (!voltageTooLow && (SupplyVoltageLevel < 8.5))
-{
-FileRoutines_addLog(LOG_VOLTAGE_TOO_LOW, NULL);
-voltageTooLow = 1;
-}
-
-if (voltageTooLow && (SupplyVoltageLevel > 9.5))
-{
-voltageTooLow = 0;
-}
-*/
-
-         if (SupplyVoltageLevel < 8.5)
-         {
-            FileRoutines_addLog(LOG_VOLTAGE_TOO_LOW, NULL);
-            voltageTooLow = 1;
-            disablePWM = 1;
-         }
-         else
-         {
-            voltageTooLow = 0;
-            disablePWM = 0;
+               
          }
 
          /*
@@ -810,27 +837,21 @@ voltageTooLow = 0;
       }
 
       // TCP Communication
-      // if (tcpSocketFd < 0) // If no active socke then check Listening sock
+      if (tcpSocketFd < 0) // If no active socke then check Listening sock
       {
          int newFd = getTcpActiveSocket(tcpListenerFd);
          if (newFd > 0)
          {
-            if (tcpSocketFd > 0) // Close old socket if there is an open one
-            {
-               close(tcpSocketFd);
-            }
             CommProt_resetChannel(CHANNEL_SERIAL_A); // Init channel info
             tcpSocketFd = newFd;
          }
       }
-
-      // If active socket check for activity
-      if (tcpSocketFd > 0)
+      else
       {
          int status = ExchangeTcpData(tcpSocketFd);
          if ((status < 0) && (errno == 104))
          {
-            printf("Closing tcp Socket\r\n");
+            printf("<6>Closing tcp Socket\r\n");
             close(tcpSocketFd);
             tcpSocketFd = -1;
          }
@@ -855,13 +876,17 @@ voltageTooLow = 0;
          {
             free(resp);
          }
-         printf("Halting vms\n");
+         printf("<2>Halting vms\n");
          usleep(1000 * 60000);
       }
 #endif
+
+
+      pthread_yield();
    }
 
    autoDimThreadRunning = 0;
+   readLuxThreadRunning = 0;
 
    return 0;
 }
@@ -1011,6 +1036,44 @@ void MakeCornerBitmap(BitmapS *bmp, int width, int height)
    }
 }
 
+
+unsigned int toKPH( unsigned int mph )
+{
+   unsigned int retval = 0;
+   unsigned int addKph = 0; 
+
+   retval = mph * 16093;
+   if( (retval % 10000) > 5000 )
+   {
+      addKph = 1;
+   }
+   retval /= 10000;
+   retval += addKph;
+
+   return retval;
+}
+
+unsigned int toMPH( unsigned int kph )
+{
+   unsigned int retval = 0;
+
+   retval = kph * 10000;
+   retval = retval / 16093;
+
+   return retval;
+}
+
+
+void frameUpdate()
+{
+   if ( 1 == VMSDriver_UpdateFrameFast() )
+   {
+      printf("<7>Refresh Seconds %llu\n\n", SecondsTimer);
+      LastRefreshTime = SecondsTimer;
+   } 
+}
+
+
 //
 // void DisplaySpeed(int speedToDisplay, DeviceInfoS* pDeviceInfo)
 //
@@ -1022,6 +1085,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    int refreshRequired = 0;
    int bcIdx = 0;
    std::chrono::duration<float> durationCast;
+   unsigned long long now;
 
    //
    // determine min, blink and maximum speed limits
@@ -1054,16 +1118,18 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    //
    if (speedToDisplay != CurrentlyDisplayedSpeed)
    {
+      printf("<7>Update Speed\n");
       int forceResetAnim = (CurrentlyDisplayedSpeed == -1);
       CurrentlyDisplayedSpeed = speedToDisplay;
 
       if (forceResetAnim || (PrevBcIdx != bcIdx) || (pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 1) || (pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 2))
       {
+         now = GetTickCount();
          CurrentlyDisplayedFrameIdx = 0;
-         CurrentlyDisplayedFrameStart = GetTickCount();
+         CurrentlyDisplayedFrameStart = now;
          refreshRequired = 1;
          AnimationFrameIdx = 0;
-         AnimationFrameStart = GetTickCount();
+         AnimationFrameStart = now;
       }
 
       if (pDeviceInfo->radarProtocol != Protocol_NMEA)
@@ -1071,57 +1137,64 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    }
    else
    {
+      now = GetTickCount();
       if (CurrentlyDisplayedFrameIdx == 0)
       {
-         if (((GetTickCount() - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOnDurationMs) ||
-             (GetTickCount() < CurrentlyDisplayedFrameStart))
+         if (((now - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOnDurationMs) || (now < CurrentlyDisplayedFrameStart))
          {
             CurrentlyDisplayedFrameIdx = 1;
-            if (GetTickCount() < CurrentlyDisplayedFrameStart)
-               CurrentlyDisplayedFrameStart = GetTickCount();
+            if (now < CurrentlyDisplayedFrameStart)
+               CurrentlyDisplayedFrameStart = now;
             else
                CurrentlyDisplayedFrameStart = CurrentlyDisplayedFrameStart + pDeviceInfo->blinkOnDurationMs;
+            
             refreshRequired = 1;
          }
       }
       else
       {
-         if (((GetTickCount() - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOffDurationMs) ||
-             (GetTickCount() < CurrentlyDisplayedFrameStart))
+         if (((now - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOffDurationMs) || (now < CurrentlyDisplayedFrameStart))
          {
             CurrentlyDisplayedFrameIdx = 0;
-            if (GetTickCount() < CurrentlyDisplayedFrameStart)
-               CurrentlyDisplayedFrameStart = GetTickCount();
+            if (now < CurrentlyDisplayedFrameStart)
+               CurrentlyDisplayedFrameStart = now;
             else
                CurrentlyDisplayedFrameStart = CurrentlyDisplayedFrameStart + pDeviceInfo->blinkOffDurationMs;
+            
             refreshRequired = 1;
          }
       }
 
       if (TicksElapsed(AnimationFrameStart) >= AnimationFrameLengthMs)
       {
+         
          if (NumAnimationFrames > 1)
          {
+            now = GetTickCount();
+            printf("<6>Do animation %llu, %llu, \t\t", now, AnimationFrameStart);  
+            printf("<6>Animation Frame idx - %d, %dms\n", AnimationFrameIdx, AnimationFrameLengthMs);
+            AnimationFrameIdx = (AnimationFrameIdx + 1) % NumAnimationFrames;             // Odd way to increment frames, but it auto rolls
 
-            AnimationFrameIdx = (AnimationFrameIdx + 1) % NumAnimationFrames;
-            if (GetTickCount() < AnimationFrameStart)
-               AnimationFrameStart = GetTickCount();
+            if (now < AnimationFrameStart)
+               AnimationFrameStart = now;
             else
             {
-               if ((GetTickCount() - AnimationFrameStart) > AnimationFrameLengthMs * 4)
+               if ((now - AnimationFrameStart) > AnimationFrameLengthMs )      // Have I gone tooo long
                {
-                  AnimationFrameStart = GetTickCount();
-                  CurrentlyDisplayedFrameStart = GetTickCount();
+                  AnimationFrameStart = now;
+                  CurrentlyDisplayedFrameStart = now;
                }
                else
                   AnimationFrameStart = AnimationFrameStart + AnimationFrameLengthMs;
             }
             refreshRequired = 1;
+            printf("<6>\n");
          }
+         
       }
    }
 
-   if (LastRefreshTime + 30 < SecondsTimer)
+   if (LastRefreshTime + 10 < SecondsTimer)
    {
       VMSDriver_Invalidate();
       refreshRequired = 1;
@@ -1133,56 +1206,66 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    //
    // if the display needs to be refreshed, refresh it
    //
+
    if (refreshRequired)
    {
-      VMSDriver_Clear(false);
+      printf("<7>Do refresh\n\n");
+      VMSDriver_Clear(false);  // Empty buffer and clean display
 
-      PrevBcIdx = bcIdx;
-
-      //
       // draw bitmap
-      //
-      if (pDeviceInfo->bitmapsConfig[bcIdx].numFrames == 0)
+      if( 1 == CurrentlyDisplayedFrameIdx)
       {
-         // no bitmap to display
-      }
-      else if (pDeviceInfo->bitmapsConfig[bcIdx].numFrames == 1)
-      {
-         VMSDriver_RenderBitmap((pDeviceInfo->bitmapsConfig[bcIdx].frames[0]) - 1, NULL);
+         switch ( pDeviceInfo->bitmapsConfig[bcIdx].numFrames )
+         {
+            case 0:
+               // No bitmap
+               
+            break;
+
+            case 1:
+               VMSDriver_RenderBitmap((pDeviceInfo->bitmapsConfig[bcIdx].frames[0]) - 1, NULL);
+            break;
+
+            default:
+               int imageID = ((pDeviceInfo->bitmapsConfig[bcIdx].frames[AnimationFrameIdx]) - 1);
+               printf("<6>\t\t\tLoading image ---- %d\n\n", imageID);
+               VMSDriver_RenderBitmap(imageID, NULL);
+            break;
+         }
       }
       else
       {
-         int imageID = ((pDeviceInfo->bitmapsConfig[bcIdx].frames[AnimationFrameIdx]) - 1);
-
-         VMSDriver_RenderBitmap(imageID, NULL);
-      }
-
-      //
-      // draw speed
-      //
-      if ((pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 1) ||
-          ((pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 2) && (CurrentlyDisplayedFrameIdx == 0)))
-      {
-         int speed = CurrentlyDisplayedSpeed;
-         if (pDeviceInfo->unitType == 1)
+         // draw speed
+         switch( pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode )
          {
-            int addKph = 0;
-            speed = speed * 16093;
-            if ((speed % 10000) >= 5000)
-               addKph = 1;
-            speed /= 10000;
-            speed += addKph;
+            case 1:
+            case 2:
+            {
+               printf("<6>\t\t\tPrinting Speed of %d\n\n", CurrentlyDisplayedSpeed);
+               int speed = CurrentlyDisplayedSpeed;
+               if (pDeviceInfo->unitType == 1)
+               {
+                  int addKph = 0;
+                  speed = speed * 16093;
+                  if ((speed % 10000) >= 5000)
+                     addKph = 1;
+                  speed /= 10000;
+                  speed += addKph;
+               }
+
+               VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bcIdx].x, pDeviceInfo->bitmapsConfig[bcIdx].y,
+                                 pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bcIdx].font);
+            }
+            break;
+
+            default:
+            break;
          }
-
-         VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bcIdx].x, pDeviceInfo->bitmapsConfig[bcIdx].y,
-                              pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bcIdx].font);
       }
-
-      NumAnimationFrames = pDeviceInfo->bitmapsConfig[bcIdx].numFrames;
-      AnimationFrameLengthMs = pDeviceInfo->bitmapsConfig[bcIdx].frameLength;
 
       if (DisplayFlashingCorners)
       {
+         printf("<6>Flashing Corners displayed \n\n");
          BitmapS corners;
          int width, height;
          VMSDriver_GetDimensions(pDeviceInfo->panelsConfiguration, width, height);
@@ -1194,25 +1277,29 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
             VMSDriver_RenderBitmap(1, &corners);
          else
             VMSDriver_RenderBitmap(1, &corners, 0);
-      }
+      } 
 
-      if (VMSDriver_UpdateFrameFast())
-      {
-         LastRefreshTime = SecondsTimer;
-         // set LE signal
-         // SetDisplayLE();
-      }
+      frameUpdate();
+
+      // Update locals
+      PrevBcIdx = bcIdx;
+
+      NumAnimationFrames = pDeviceInfo->bitmapsConfig[bcIdx].numFrames;
+      AnimationFrameLengthMs = pDeviceInfo->bitmapsConfig[bcIdx].frameLength;
    }
 }
+
+
 
 //
 // int GetLuxmeterValue()
 //
 // Returns the average luminance.
 //
-int GetLuxmeterValue()
+unsigned int GetLuxmeterValue()
 {
-   return (int)LuxMeterLPF;
+   // printf("Reading Lux %2.3f\n", LuxMeterLPF);
+   return (unsigned int)LuxMeterLPF;
 }
 
 //
@@ -1226,29 +1313,46 @@ void* DoAutoDimming( void *argPtr )
    DeviceInfoS deviceInfo;
    struct timespec sleepDelay, timeLeft;
    int i, j;
-   int luminance = 0;
-   char useAutoDim = 0;
+   unsigned int luminance = 0;
+   char useAutoDim = 1;
    unsigned long pwmSet = 0;
    unsigned long pwmMax = PWMMAX;
+   //unsigned long pwmDutyLast  = 0;
+   unsigned long pwmDuty = 0;
+   unsigned int maxIndex  = (sizeof(deviceInfo.autoDimming) / sizeof(AutoDimmingEntryS)) - 1;
+
+   sched_param param;
+   int res;
+   pthread_attr_t threadAttrs;
+   
+   pthread_attr_init(&threadAttrs);
+
+   param.sched_priority = 0;
+   res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   if( 0 != res )
+   {
+      strerror(errno);
+   }
 
    autoDimThreadRunning = 1;
 
-   sleepDelay.tv_nsec = (150) * (1000) * (1000);                       // 100ms sleep cycle
+   sleepDelay.tv_nsec = (125) * (1000) * (1000);                       // 100ms sleep cycle
    sleepDelay.tv_sec = 0;
 
+   nanosleep(&sleepDelay, &timeLeft);
 
-   printf("Absolute PWM max is %lu percent of input voltage\n", pwmMax);
+   printf("<3>Absolute PWM max is %lu percent of input voltage\n", calcPwmDuty(100));
 
    while(1 == autoDimThreadRunning )
    {
       FileRoutines_readDeviceInfo(&deviceInfo);                      // Update our config
-
       if (1 == deviceInfo.autoDim)                                           // Are we doing auto dim?
       {
          luminance = GetLuxmeterValue();
-         PWMDutyCycle = deviceInfo.autoDimming[15].brightness;       // Start at max
+         PWMDutyCycle = deviceInfo.autoDimming[maxIndex].brightness;
 
-         for (i = 0; i < 16; i++)   // This is a table lookup 
+         for (i = 0; i < maxIndex; i++)   // This is a table lookup 
          {
             if (luminance <= deviceInfo.autoDimming[i].luminance)
             {
@@ -1259,28 +1363,20 @@ void* DoAutoDimming( void *argPtr )
       }
       else
       {
-         PWMDutyCycle = (deviceInfo.displayBrightness & 0x7F) ; 
+         getPwmDuty(thePWMHandle);
+         PWMDutyCycle = (deviceInfo.displayBrightness & 0x7F) ;
       }
 
-      pwmSet = scalePercentage(pwmMax, PWMDutyCycle);
-      
-      if(1 == disablePWM)
-      {
-         pwmDuty = 0;
-      }
-      else
-      {
-         pwmDuty = calcPwmDuty(pwmSet);
-      }
+      // printf("<7>Setting duty cycle to %d\n\n", PWMDutyCycle);
+      pwmDuty = calcPwmDuty(PWMDutyCycle);
 
       setPwmDuty(thePWMHandle, pwmDuty);
-      //printf("\t\tPWM Duty %lu, Set %lu\t\n", PWMDutyCycle, pwmSet);
 
       nanosleep(&sleepDelay, &timeLeft);
-      readLux();
+ 
    }
-   
-   return NULL;
+
+   return 0;
 }
 
 int IsWithinInterval(int start, int duration)
@@ -1436,78 +1532,210 @@ void SetupEthernetParams()
    FileRoutines_readDeviceInfo(&deviceInfo);
 }
 
-void waitPwmOff(void)
-{
-   if (getPwmDuty(thePWMHandle) != PWM_PERIOD) // IN the off chance PWM is off skip check
-   {
-      while (pinctl::inst().get(pwmMonitorFd) == 1)
-         ; // Off wait for beginning of next off
-      while (pinctl::inst().get(pwmMonitorFd) == 0)
-         ; // Wait until its off
-   }
-}
+
 
 int maxF = 0;        // 1928 = ~25 lux
 int minF = 4096;     // 1765 = ~574 lux
-int m_point[2] = {1778, 1989};
+typedef struct luxSlope {
+   float analogV;
+   int a2d_Value;
+   int  lux;
+} luxSlope;
+
+luxSlope m_point[2] = {{1.566, 4096, 2000},{0.07, 0, 0}};
 int luxPrint = 0;
-void readLux(void)
+void *readLuxThread(  void *argPtr )
 {
    int rawLvl;
    float conv;
    int lux = 0;
-   float x1 = 2081.0;
-   float x2 = 2940.0;
-   float y1 = 632;
-   float y2 = 1;
+   float x1 = m_point[0].a2d_Value; // 3559;    // A2D in dark
+   float x2 = m_point[1].a2d_Value; //160;      // A2D in bright
+   float y1 = 0;                                // Lux in dark
+   float y2 = 2000;                             // Lux in bright
    float m = (y2 - y1 ) / ( x2 - x1 );
    //float m = (y1 - y2 ) / ( x1 - x2 );
    float b = (y1) - ( m * x1 );
 
-   waitPwmOff();
+   struct timespec sleepDelay, timeLeft;
+   sched_param param;
+   int res;
+   pthread_attr_t threadAttrs;
+   
+   pthread_attr_init(&threadAttrs);
 
-   rawLvl = adc::inst().readVal(4);             // Low number is max LUX  - diode grounds resistor and thus takes voltage down
-   if (rawLvl > 0)
+   param.sched_priority = 6;
+   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   if( 0 != res )
    {
-      rawLvl = rawLvl + 1050 ;                        // Use offset to adjust result
-      //conv = ((float)rawLvl * (3.3 / 4096.0));      // Raw Voltage
-      lux = (int)( (m * rawLvl) + b + 100.0);
-      //printf("Raw %d\t M val %0.3f\t B %03f\t Result Lux %d\n\r", rawLvl, m, b, lux);
+      strerror(errno);
+   }
 
-      // if (lux > 2000)   // Cap at full bright
-      //    lux = 2000;
+	sleepDelay.tv_nsec = (125) * (1000) * (1000);                       // 1ms sleep cycle
+   sleepDelay.tv_sec = 0;
 
-      // if (lux < 0)      // Cap at full black
-      //    lux = 0;
+   readLuxThreadRunning = 1;
 
-      
-      if( lux < minF )
+   nanosleep(&sleepDelay, &timeLeft);
+
+   while (1 == readLuxThreadRunning )
+   {
+      // waitPwmOff();
+
+      rawLvl = adc::inst().readVal(4);             // Low number is max LUX  - diode grounds resistor and thus takes voltage down
+      if (rawLvl > 0)
       {
-         m_point[0] = lux;
-         minF = lux;
+         rawLvl = rawLvl + 350;
+         conv = ((float)rawLvl * (1.8 / 4096.0));      // Raw Voltage
+
+         lux = (int)( (m * rawLvl) + b);
+         // printf("Conv %f\t, Raw %d\t M val %0.3f\t B %03f\t Result Lux %d\n\r", conv, rawLvl, m, b, lux);
+
+         // if (lux > 2000)   // Cap at full bright
+         //     lux = 2000;
+
+         // if (lux < 0)      // Cap at full black
+         //     lux = 0;
+
+         
+         if( lux < minF )
+         {
+            m_point[0].analogV = conv;
+            //m_point[0].a2d_Value = rawLvl;
+            m_point[0].lux = lux;
+            minF = lux;
+         }
+
+         if( lux > maxF )
+         {
+            m_point[1].analogV = conv;
+            //m_point[1].a2d_Value = rawLvl;
+            m_point[1].lux = lux;
+            maxF = lux;
+         }
+         
+         if( LuxMeterLPF > lux )  // Down slope
+         {
+            LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+         }
+         else
+         {
+            LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+         }
+
+         luxPrint++;
+         if( luxPrint > 100 )
+         {
+            printf("<5>Raw ADC Read %d\t LPF Lux result = %0.3f\n", rawLvl, LuxMeterLPF);
+            printf("<6>Min found %d\t Max Found %d\n", minF, maxF);
+            luxPrint = 0;
+         }
       }
 
-      if( lux > maxF )
-      {
-         m_point[1] = lux;
-         maxF = lux;
-      }
+      nanosleep(&sleepDelay, &timeLeft);
+   }
+
+   return 0;
+}
+
+#define voltageSleep 250
+void *readVoltageThread(  void *argPtr )
+{
+   int lowVoltCounter = 0;
+   int voltPrint = 0;
+   int doPrint = 0;
+   unsigned long pwmDuty = 0;
+   unsigned long holdDuty = 0;
+   struct timespec sleepDelay, timeLeft;
+   int adcr = 0;
+   float calcV = 0.0;
+   sched_param param;
+   int res;
+   pthread_attr_t threadAttrs;
+   
+   pthread_attr_init(&threadAttrs);
+
+   param.sched_priority = 10;
+   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   if( 0 != res )
+   {
+      strerror(errno);
+   }
+
+	sleepDelay.tv_nsec = (voltageSleep) * (1000) * (1000);                       // 1ms sleep cycle
+   sleepDelay.tv_sec = 0;
+
+   readVoltageThreadRunning = 1;
+   disablePWM = 0;
+
+   nanosleep(&sleepDelay, &timeLeft);
+
+   while (1 == readVoltageThreadRunning )
+   {
+      adcr = adc::inst().readVal(2);
+      calcV = (adcr * (1.8 / 4096) * 8.5) + 0.318; // 0.225 is the measured line loss fudge factor
       
-      if( LuxMeterLPF > lux )  // Down slope
+      // r1 = 1K r2 =7.5K VREF = 1.8
+      // Vmax In = 15.3V cause 4096 counts  = 1.8V = 8.5 * 1.8 = 15.3V
+      if (SupplyVoltageLevel == 0.0)
       {
-         LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+         SupplyVoltageLevel = calcV;
       }
       else
       {
-         LuxMeterLPF = (LuxMeterLPF * 0.97) + (lux * 0.03);
+         // Poor mans LPF - will cause ramp up over about 20 Seconds
+         SupplyVoltageLevel = (SupplyVoltageLevel * 0.75) + (calcV * 0.25);
       }
 
-      luxPrint++;
-      if( luxPrint > 25 )
+
+      if (SupplyVoltageLevel <= 8.5f )
       {
-         printf("Raw ADC Read %d\t LPF Lux result = %0.3f\n", rawLvl, LuxMeterLPF);
-         // printf("Min found %d\t Max Found %d\t", minF, maxF);
-         luxPrint = 0;
+         lowVoltCounter++;
       }
+      
+      if (SupplyVoltageLevel <= 8.5f && lowVoltCounter >= 30 )
+      {
+         //FileRoutines_addLog(LOG_VOLTAGE_TOO_LOW, NULL);
+         if(0 == disablePWM )
+         {
+            printf(JOURNALD_LEVEL "PWM is being disabled due to low voltage detection\n");
+            VMSDriver_LockDisplay();
+            stopPwm(thePWMHandle);
+            
+            disablePWM = 1;
+         }
+      }
+      else
+      {
+         if(1 == disablePWM )
+         {
+            sleepDelay.tv_nsec = (voltageSleep) * (1000) * (1000);                       // 1ms sleep cycle
+            sleepDelay.tv_sec = 1;
+
+            nanosleep(&sleepDelay, &timeLeft);
+            printf("<1>PWM is being enabled due to low voltage recovery\n");
+            startPwm(thePWMHandle);
+            VMSDriver_UnlockDisplay();
+            disablePWM = 0;
+            lowVoltCounter = 0;
+
+            sleepDelay.tv_nsec = (voltageSleep) * (1000) * (1000);                       // 3ms sleep cycle
+            sleepDelay.tv_sec = 0;
+         }
+      }
+
+      voltPrint++;
+      if( voltPrint > 100 )
+      {
+         printf("<6>A2D = %d -> Calculate Supply Voltage %0.2f \t\t", adcr, calcV);
+         printf("<5>Supply Voltage estimate %0.2f\n\n", SupplyVoltageLevel);
+         voltPrint = 0;
+      }
+
+      nanosleep(&sleepDelay, &timeLeft);
    }
+
+   return 0;
 }

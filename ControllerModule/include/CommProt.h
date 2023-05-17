@@ -15,7 +15,7 @@
 #ifdef LARGER_DOTS
 #define	FIRMWARE_VERSION	"3.0.0-L"
 #else
-#define	FIRMWARE_VERSION	"4.0.2.0"
+#define	FIRMWARE_VERSION	"7.6.0.0"
 #endif
 
 #define DEVICE_TYPE_STRING	"MS_SpeedVMS"

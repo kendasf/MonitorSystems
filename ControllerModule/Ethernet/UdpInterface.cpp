@@ -118,12 +118,15 @@ bool udp_open (
 		status  = pthread_attr_init(&attr);
 		if (status != 0)
 			printf("pthread_attr_init\n");
-	
+
+		printf("<5>Starting UDP Socket for JSON AJAX\\n\n");
 		status = pthread_create(&(ctlblock->thread_id), &attr, &UdpReceiverThread, ctlblock);
 		if (status != 0)
 			printf("pthread create failed for Listen Task\n");
-	
+
 		pthread_attr_destroy(&attr);
+
+		pthread_setname_np(ctlblock->thread_id, "UDP Socket");
 		retval = true;
 	}
 	else

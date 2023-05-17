@@ -13,15 +13,14 @@
 
 #include <pthread.h>
 #include "../Common/inc/uart.h"
+#include "FileRoutines.h"
+#include "../Common/inc/pwm.h"
+
 
 #define SERVER_PORT_NUM 1530
 
 // comment the following line for smaller DOTs
 //#define LARGER_DOTS
-
-#define PWM_PERIOD 2000000
-
-#include "FileRoutines.h"
 
 #define BASE_DATA "/store"
 
@@ -29,6 +28,7 @@ extern int TestModeBitmap;
 extern int TestModeDuration;
 extern int flashDrivePresent;
 extern int DisplayFlashingCorners;
+extern pwmHandle thePWMHandle;
 
 extern char *CAMERA_IP_ADDR;
 
@@ -42,7 +42,7 @@ int ExchangeTcpData(int sockFd);
 void ExchangeUARTData(uart_ptr dev);
 void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo);
 void UpdateLuxmeter(void);
-int GetLuxmeterValue(void);
+unsigned int GetLuxmeterValue(void);
 int GetPWMDuty(void);
 void SetTime(void);
 

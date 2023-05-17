@@ -19,6 +19,8 @@ set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+add_compile_options(-Werror=unused-function)
+
 add_subdirectory(Common)
 add_subdirectory(CryptLibs)
 add_subdirectory(Ethernet)
@@ -70,5 +72,11 @@ target_link_libraries(${projectName} dcommon dcrypto dethernet djson ${Boost_LIB
 # Auto copy exe after cean build
 add_custom_command( TARGET ${projectName} 
                      POST_BUILD 
-                     COMMAND rsync -avzhe ssh ${CMAKE_BINARY_DIR}/vms debian@10.0.15.53:/home/debian/testApp/vms 
+                     COMMAND rsync -avzhPe ssh ${CMAKE_BINARY_DIR}/vms debian@10.8.0.2:/home/debian/testApp/vms
                      )
+
+# Auto copy exe after cean build
+#add_custom_command( TARGET ${projectName} 
+#                     POST_BUILD 
+#                     COMMAND scp ${CMAKE_BINARY_DIR}/vms debian@10.0.2.18:/home/debian/testApp/
+#                     )

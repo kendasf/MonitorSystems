@@ -13,6 +13,7 @@ public:
   }
 
   void enable_channel(int ch);
+  void delete_channel(int ch);
   int readVal(int ch);
 
 private:

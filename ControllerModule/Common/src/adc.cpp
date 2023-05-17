@@ -59,6 +59,13 @@ void adc::enable_channel(int ch) {
    }
 }
 
+void adc::delete_channel(int ch)
+{
+   free(adc_info[ch - 1].adc_fname);
+   adc_info[ch - 1].channelEnabled = 0;
+   adc_info[ch - 1].fd = NULL;
+}
+
 int c_last = 0;
 char adc_read_printed = 0;
 int printarray[CHMAX] = {0};
@@ -99,7 +106,7 @@ int adc::readVal(int ch) {
          {
             printarray[ch]++;
 
-            if( (printarray[ch] % 10) == 0 )
+            if( (printarray[ch] % 250) == 0 )
             {
                printf(JOURNALD_LEVEL "ADC %d read -> %d\n", ch, val );
             }

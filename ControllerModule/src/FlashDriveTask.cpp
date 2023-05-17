@@ -36,10 +36,11 @@ int isFlashDrivePresent(void)
    // Return 1 for /dev/sda and 2 for /dev/sdb, note that this finds only USB disks
 
    int retval = 0;
+   printf("Checking for USB block device\n");
    char *resp = SysCmd("ls /dev/sd*1 2> /dev/null");
    if (resp != NULL)
    {
-      if (strstr(resp, "No such file or directory") != NULL)
+      if (strstr(resp, "No USB Found") != NULL)
       {
          retval = 0;
       }
@@ -67,6 +68,7 @@ void uSD_flash_monitor_init(void)
 {
    unsigned char fsReady = 0;
    char *checkExtResp = NULL;
+   printf("Checking for uSD card\n");
    char *diskList = SysCmd("lsblk | grep mmcblk0");   /* External flash is on MMC0 */ 
    if (NULL != diskList )
    {
@@ -74,18 +76,21 @@ void uSD_flash_monitor_init(void)
 
       if( false == HaveExternalFlash )
       {
+         printf("uSD attempting to mount at /mnt/ext\n\n");
          /* mount -t fsType device dir */
          // SysCmd("mount -t ext4 /dev/mmcblk0p3 /store/");    /* look for ext4 fs*/
          // SysCmd("mount -t f2fs /dev/mmcblk0p3 /store/");    /* look for f2fs fs*/
          // SysCmd("mount -t f2fs /dev/mmcblk1p3 /store/");    /* look for f2fs fs*/
-         checkExtResp = SysCmd("mount -t vfat /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
+         checkExtResp = SysCmd("mount /dev/mmcblk0p1 /mnt/ext/ -o rw,uid=0,gid=0,umask=000,dmask=000"); /* look for fat32 fs*/
       
          if( NULL == checkExtResp )  /* Null response means that the mount command worked */
          {
+            printf("uSD mounted successfully\n\n");
             HaveExternalFlash = true;  // uSD card is present with goot directory structure
          }
          else
          {
+            printf("uSD error mounting disk\n\n");
             HaveExternalFlash = false;
             return;
          }
@@ -93,6 +98,7 @@ void uSD_flash_monitor_init(void)
       }
       else
       {
+         printf("uSD already mounted\n\n");
          return;
       }
       
@@ -238,6 +244,19 @@ void *MemoryMonTask(void *argPtr)
    bool copyComplete = false;
    bool driveWasPresent = false;
    unsigned long long flashDriveCheckTimer = GetTickCount(); // check every 30 seconds
+   sched_param param;
+   int res;
+   pthread_attr_t threadAttrs;
+   
+   pthread_attr_init(&threadAttrs);
+
+   param.sched_priority = -1;
+   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   if( 0 != res )
+   {
+      strerror(errno);
+   }
 
    CheckMemoryCard();  // Why??
 
@@ -246,11 +265,15 @@ void *MemoryMonTask(void *argPtr)
    while (1)
    {
       sleep(1);
-
-      uSD_flash_monitor_init(); // Check to see if uSD card has been inserted
+      pthread_yield();
 
       if ((flashDriveCheckTimer > 0) && (flashDriveCheckTimer < GetTickCount()))
       {
+         printf("Checking for block devices\n\n");
+
+         // Check to see if uSD card has been inserted
+         uSD_flash_monitor_init(); 
+
          flashDriveCheckTimer = GetTickCount() + 10000; // check every 10 seconds
          flashDrivePresent = isFlashDrivePresent();   // 0, 1, 2
          if ( (flashDrivePresent > 0) && (false == copyComplete) )
@@ -352,12 +375,17 @@ void *MemoryMonTask(void *argPtr)
             driveWasPresent = false;
             printf("Flash Drive has been removed\r\n");
          }
+         else
+         {
+            printf("No USB or uSD actions performed\n\n");
+         }
 
          // Admin can directly upload the update.vac to the /root folder
-         resp = SysCmd("ls /root/update.vac");             
+         resp = SysCmd("ls /root/update.vac 2> /dev/null ");             
          if( NULL != resp )   /* An update file was found */
          {
-            free(resp);            
+            free(resp);
+            printf("Found update.vac in /root directory\n\n");      
             if (FileRoutines_autoconfFromCard("/root/update.vac") > 0)
             {
                printf("Configuration Updated\r\n");
@@ -607,6 +635,7 @@ printf("%s ERROR: %d pthread_attr_setstacksize: %s - %d\r\n", __FUNCTION__, stat
 #endif
 
    flashTaskTCB.localPort = localPort;
+   printf("<5>Starting Flash drive monit\n\n");
    status = pthread_create(&flashTaskTCB.threadID, &attr, MemoryMonTask, (void *)&flashTaskTCB);
 
    status = pthread_attr_destroy(&attr);
@@ -614,4 +643,8 @@ printf("%s ERROR: %d pthread_attr_setstacksize: %s - %d\r\n", __FUNCTION__, stat
    {
       printf("ERROR: %d pthread_attr_destroy: %s - %d\r\n", status, strerror(errno), errno);
    }
+
+   pthread_setname_np(flashTaskTCB.threadID, "FlashMon Thread");
+
+   
 }

@@ -29,7 +29,7 @@ int Radar_AutoConf(void);
 void Radar_ReceiveData(DeviceInfoS *pDeviceInfo);
 int Radar_GetLastSpeed(void);
 int Radar_GetLastSpeedTime(void);
-int Radar_DetermineSpeedForDisplay(DeviceInfoS *pDeviceInfo);
+unsigned int Radar_DetermineSpeedForDisplay(DeviceInfoS *pDeviceInfo);
 int Radar_CurrentIntensity(void);
 
 // private:

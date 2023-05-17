@@ -17,12 +17,10 @@
 #include <mutex>
 #include "fs.h"
 
-#ifndef WIN32
+
+#include <sys/resource.h>
 #include <unistd.h>
-#else
-#define popen _popen
-#define pclose _pclose
-#endif
+
 
 #ifndef WebGuiPP_executor_h
 #define WebGuiPP_executor_h
@@ -66,6 +64,22 @@ namespace gnode {
     
   private:
     static void executor_thread() {
+      sched_param param;
+      int res;
+      pthread_attr_t threadAttrs;
+      
+      pthread_attr_init(&threadAttrs);
+
+      param.sched_priority = 18;
+      res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+      //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+      if( 0 != res )
+      {
+          strerror(errno);
+      }
+      
+      pthread_setname_np( pthread_self() , "Exec Thread");
+      printf("<5>Starting Exec Thread\n\n");
       while(true) {
         _lock.lock();
         if (_running_processes.empty() ||  _running_processes.front().completed) {

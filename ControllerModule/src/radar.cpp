@@ -436,7 +436,7 @@ int Radar_GetLastSpeedTime()
 //
 // Runs a simple state machine which reads the settings and decides what should be displayed
 //
-int Radar_DetermineSpeedForDisplay(DeviceInfoS *pDeviceInfo)
+unsigned int Radar_DetermineSpeedForDisplay(DeviceInfoS *pDeviceInfo)
 {
 	int keepLastSpeedLengthMs = pDeviceInfo->keepLastSpeedLengthMs;
 	int updateDisplayLengthMs = pDeviceInfo->updateDisplayLengthMs;
@@ -530,18 +530,29 @@ void* radarTask(void* argPtr)
 {
 	TCB *args = (TCB*) argPtr;
 	int radarFd = -1;
-	int speedToDisplay;
-	int lastSpeedReported = -1;
-	char newSpeed[25];
 	fd_set fdr, fde;
 	struct timeval delay;
+	struct timespec delaySleep, timeLeft;
 	int iSel;
-	char* retval = NULL;
 	long lTmoMs;
 	int iFdx = -1;
 	int hSock = GetUdpServerHandle(args->localPort);
-	unsigned long long timer = GetTickCount();
-	unsigned long long serialActive = 0;
+	int timertick = 0;
+	int serialActive = 0;
+
+	sched_param param;
+   int res;
+   pthread_attr_t threadAttrs;
+   
+   pthread_attr_init(&threadAttrs);
+
+   param.sched_priority = 8;
+   // res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+	res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   if( 0 != res )
+   {
+      strerror(errno);
+   }
 
 	FD_ZERO(&fdr);
 	FD_ZERO(&fde); // error fd
@@ -555,15 +566,20 @@ void* radarTask(void* argPtr)
 	printf("Setup RADAR_POWER - GPIO 65 - Port 2 Pin 1\n");
 	radarFd = pinctl::inst().export_pin(RADAR_POWER, 0); //65
 	pinctl::inst().set(radarFd, 0);
-	timer = GetTickCount(); 
-	lTmoMs = 1000; // Resets the Radar in 1 second
-	serialActive = GetTickCount() - 55000; // Set Serial to expire in 5 seconds
+	//timer = GetTickCount(); 
+	lTmoMs = 500; // 500ms checks
+	serialActive = 0;
 	pinctl::inst().set(radarFd, 0);
 	usleep(1000 * 100);
 	pinctl::inst().set(radarFd, 1);
 
+	delaySleep.tv_nsec = (100) * (1000);	// 100us so 2x 56kbaud
+	delaySleep.tv_sec = 0;
+
 	while(1)
 	{
+		nanosleep(&delaySleep, &timeLeft);
+		
 		iFdx = hSock;
 		if (radar_uart->fd() > hSock)
 			iFdx = radar_uart->fd();
@@ -575,13 +591,19 @@ void* radarTask(void* argPtr)
 		FD_ZERO(&fde); // error fd
 
 		FD_SET(hSock, &fdr);
-		FD_SET(hSock, &fde);
 		FD_SET(radar_uart->fd(), &fdr);
+
+		FD_SET(hSock, &fde);
 		FD_SET(radar_uart->fd(), &fde);
 
 		iSel = select(iFdx+1, &fdr, 0, &fde, &delay); // Select for both Cmd Pipe and For IO
 		if (iSel > 0)
 		{
+			if (FD_ISSET(radar_uart->fd(), &fdr))
+			{
+				serialActive = 1;
+				Radar_ReceiveData(&DeviceInfo);
+			}
 			if (FD_ISSET(hSock, &fdr))
 			{
 				char* cmd = ReadCommand(hSock, 10); // 10ms minimum delay
@@ -592,35 +614,37 @@ void* radarTask(void* argPtr)
 					cmd = NULL;
 				}
 			}
-			if (FD_ISSET(radar_uart->fd(), &fdr))
-			{
-				serialActive = GetTickCount();
-				Radar_ReceiveData(&DeviceInfo);
-			}
 		}
 		else // Timeout
 		{
 			// Timeout actions
-			if ((serialActive == 0) || (TicksElapsed(serialActive) > 60000))
+			if ((serialActive == 0) || (timertick > 30))
 			{
 				printf("Resetting Radar\n");
-				serialActive = GetTickCount();
-				lTmoMs = 10000;
+				
 				pinctl::inst().set(radarFd, 0);
-				usleep(1000*100);
+				usleep(100000);
 				pinctl::inst().set(radarFd, 1);
+
+				serialActive = 0;
+				timertick = 0;
 			}
 		}
-		if (TicksElapsed(timer) > 10000)
+		
+
+		if ( timertick > 20)
 		{
 			char request[64];
 			sprintf(request, "\r\n#set_sensitivity=%d\r\n", DeviceInfo.sensitivity);
+
 			radar_uart->write(request);
 			usleep(100000);
 			radar_uart->write(request);
-			usleep(100000);
-			timer = GetTickCount();
+
+			timertick = 0;
 		}
+
+		timertick++;
 	}
 }
 
@@ -640,10 +664,16 @@ void Radar_CreateTask(int localPort, int reportPort)
 
 	radarTaskTCB.localPort = localPort;
 	radarTaskTCB.arg1 = reportPort;
+	printf("<5>Starting Radar Thread\n\n");
 	status = pthread_create(&radarTaskTCB.threadID, &attr, radarTask, (void*) &radarTaskTCB);
+	
+	pthread_setname_np(radarTaskTCB.threadID, "Radar Thread");
+
 	status = pthread_attr_destroy(&attr);
 	if (status != 0)
 	{
 		printf("ERROR: %d pthread_attr_destroy: %s - %d\r\n", status, strerror(errno), errno);
 	}
+
+	
 }

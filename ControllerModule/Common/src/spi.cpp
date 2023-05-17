@@ -17,6 +17,7 @@
 
 spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(speed), _bits(bits) {
    int ret = 0;
+   int ret2 = 0;
    _fd = -1;
    int count = 0;
 
@@ -41,13 +42,35 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    
    printf("spi: starting \n");
    
+   switch(mode)
+   {
+      default:
+      case 0:
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_0);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_0);
+         break;
+
+      case 1:
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_1);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_1);
+      break;
+
+      case 2:
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_2);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_2);
+      break;
+
+      case 3:
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_3);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_3);
+      break;
+   }
    // spi mode
-   ret = ioctl(_fd, SPI_IOC_WR_MODE, &mode);
+   
    if (ret == -1)
       printf("spi: can't set spi mode\n");
 
-   ret = ioctl(_fd, SPI_IOC_RD_MODE, &mode);
-   if (ret == -1)
+   if (ret2 == -1)
       printf("spi: can't get spi mode\n");
 
    // bits per word
@@ -64,15 +87,25 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    if (ret == -1)
       printf("spi: can't set max speed hz\n");
 
+
    ret = ioctl(_fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
    if (ret == -1)
       printf("spi: can't get max speed hz\n");
+
+      printf("SPI speed %d Hz\n", speed);
 }
 
 void spi::write(unsigned char *msg, int len) {
-   memcpy(_tx, msg, len);
    memset(_rx, 0xFF, sizeof(_rx));
+   memset(_tx, 0, sizeof(_tx));  
+   memcpy(_tx, msg, len);
    transfer(len);
+}
+
+void spi::flush(void) {
+   memset(_rx, 0xFF, sizeof(_rx));
+   memset(_tx, 0, sizeof(_tx));
+   transfer(sizeof(_tx));
 }
 
 void spi::transfer(int len) {

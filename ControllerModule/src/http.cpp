@@ -43,6 +43,7 @@ using boost::asio::ip::tcp;
 static bool on_generic_request(efgy::net::http::server<tcp>::session &session, std::string& s, 
   std::map<std::string, std::string, caseInsensitiveLT>& headers) {
   http::inst().handle_web_request(session, s, headers);
+  // printf("Handeled web request\n");
   return true;
 }
 
@@ -52,6 +53,7 @@ void http::start_web_services(const std::string& folder, const std::string& root
   root_path = root;
 
   start_http(port, upload_folder);
+  printf("Web server started\n");
 }
 
 void http::start_http(int port, const std::string& upload_folder) {
@@ -69,7 +71,7 @@ void http::proc_events() {
     if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() > max_loop_ms)
       break;
   }
-
+  // printf("Web Events Processed\n");
 }
 
 std::string get_extension(const std::string& p) {

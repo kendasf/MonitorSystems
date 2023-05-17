@@ -700,11 +700,14 @@ void CreateCameraTask(int localPort, int reportPort)
 
 	taskTCB.localPort = localPort;
 	taskTCB.arg1 = reportPort;
+	printf("<5>Starting Camera handler thread\n\n");
 	status = pthread_create(&taskTCB.threadID, &attr, cameraTask, (void*) &taskTCB);
 
 	status = pthread_attr_destroy(&attr);
 	if (status != 0) {
 		printf("ERROR: %d pthread_attr_destroy: %s - %d\r\n", status, strerror(errno), errno);
 	}
+
+	pthread_setname_np(taskTCB.threadID, "Camera Thread");
 
 }
