@@ -142,7 +142,7 @@ void *displayThread( void *argPtr )
    
    pthread_attr_init(&threadAttrs);
 
-   param.sched_priority = 1;
+   param.sched_priority = 2;
    res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
    //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
    if( 0 != res )

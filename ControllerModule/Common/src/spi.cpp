@@ -46,23 +46,23 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    {
       default:
       case 0:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_0);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_0);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_0);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_0);
          break;
 
       case 1:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_1);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_1);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_1);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_1);
       break;
 
       case 2:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_2);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_2);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_2);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_2);
       break;
 
       case 3:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_3);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_3);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_3);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_3);
       break;
    }
    // spi mode

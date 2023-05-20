@@ -571,9 +571,9 @@ int main(int argc, char *argv[])
    sched_param param;  
    pthread_attr_init(&threadAttrs);
 
-   param.sched_priority = 6;
-   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   param.sched_priority = 1;
+   res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
    if( 0 != res )
    {
       strerror(errno);
@@ -599,7 +599,7 @@ int main(int argc, char *argv[])
 
    struct timespec delay, timeLeft;
 
-	delay.tv_nsec = (10) * (1000) * (1000);
+	delay.tv_nsec = (2) * (1000) * (1000);
 	delay.tv_sec = 0;
 
    while (1)
@@ -1086,6 +1086,12 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    int bcIdx = 0;
    std::chrono::duration<float> durationCast;
    unsigned long long now;
+   long long frameDuration = 0;
+   long long duration = 0;
+   volatile char updateImage = 0;
+   int on = 0;
+   int off = 0;
+
 
    //
    // determine min, blink and maximum speed limits
@@ -1119,152 +1125,156 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    if (speedToDisplay != CurrentlyDisplayedSpeed)
    {
       printf("<7>Update Speed\n");
-      int forceResetAnim = (CurrentlyDisplayedSpeed == -1);
+      int forceResetAnim = -1;
       CurrentlyDisplayedSpeed = speedToDisplay;
 
-      if (forceResetAnim || (PrevBcIdx != bcIdx) || (pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 1) || (pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode == 2))
-      {
-         now = GetTickCount();
-         CurrentlyDisplayedFrameIdx = 0;
-         CurrentlyDisplayedFrameStart = now;
-         refreshRequired = 1;
-         AnimationFrameIdx = 0;
-         AnimationFrameStart = now;
-      }
+      CurrentlyDisplayedFrameIdx = 0;
+      CurrentlyDisplayedFrameStart = GetTickCount();
+      refreshRequired = 1;
+      AnimationFrameIdx = 0;
+      AnimationFrameStart = GetTickCount();
 
       if (pDeviceInfo->radarProtocol != Protocol_NMEA)
          FileRoutines_addVehicleLog(speedToDisplay);
    }
    else
    {
-      now = GetTickCount();
-      if (CurrentlyDisplayedFrameIdx == 0)
+      
+      if( 0 == CurrentlyDisplayedSpeed )
       {
-         if (((now - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOnDurationMs) || (now < CurrentlyDisplayedFrameStart))
-         {
-            CurrentlyDisplayedFrameIdx = 1;
-            if (now < CurrentlyDisplayedFrameStart)
-               CurrentlyDisplayedFrameStart = now;
-            else
-               CurrentlyDisplayedFrameStart = CurrentlyDisplayedFrameStart + pDeviceInfo->blinkOnDurationMs;
-            
-            refreshRequired = 1;
-         }
+         on = 0;
+         off = AnimationFrameLengthMs;
       }
       else
       {
-         if (((now - CurrentlyDisplayedFrameStart) >= pDeviceInfo->blinkOffDurationMs) || (now < CurrentlyDisplayedFrameStart))
-         {
-            CurrentlyDisplayedFrameIdx = 0;
-            if (now < CurrentlyDisplayedFrameStart)
-               CurrentlyDisplayedFrameStart = now;
-            else
-               CurrentlyDisplayedFrameStart = CurrentlyDisplayedFrameStart + pDeviceInfo->blinkOffDurationMs;
-            
-            refreshRequired = 1;
-         }
+         on = pDeviceInfo->blinkOnDurationMs;
+         off = pDeviceInfo->blinkOffDurationMs;
       }
 
-      if (TicksElapsed(AnimationFrameStart) >= AnimationFrameLengthMs)
+      now = GetTickCount();
+      duration = now - CurrentlyDisplayedFrameStart;    // 12ms
+      switch( CurrentlyDisplayedFrameIdx )
       {
-         
+         case 0:
+            if( duration >= on )   // Frame 0 has timed out
+            {
+               //printf("<6>Next Frame is 1");
+               CurrentlyDisplayedFrameIdx = 1;
+               CurrentlyDisplayedFrameStart = now;       // Reset start
+               // printf("<7>Frame 1 --- Duration %lld, Start %llu, Len %d\n", duration, CurrentlyDisplayedFrameStart, pDeviceInfo->blinkOnDurationMs);
+            }
+         break;
+
+         case 1:
+            if ( duration >= off ) // Frame 1 has timed out
+            {
+               //printf("<6>Next Frame is 0");
+               CurrentlyDisplayedFrameIdx = 0;
+               CurrentlyDisplayedFrameStart = now;       // Reset start
+               // printf("<7>Frame 0 --- Duration %lld, Start %llu, Len %d\n", duration, CurrentlyDisplayedFrameStart, pDeviceInfo->blinkOffDurationMs);
+            }
+         break;
+      }     
+      
+      now = GetTickCount();
+      duration = now - AnimationFrameStart;           // How long have we gone - 12ms
+      if ( duration >= AnimationFrameLengthMs )        // is 850ms > 12ms
+      {
          if (NumAnimationFrames > 1)
          {
-            now = GetTickCount();
-            printf("<6>Do animation %llu, %llu, \t\t", now, AnimationFrameStart);  
-            printf("<6>Animation Frame idx - %d, %dms\n", AnimationFrameIdx, AnimationFrameLengthMs);
             AnimationFrameIdx = (AnimationFrameIdx + 1) % NumAnimationFrames;             // Odd way to increment frames, but it auto rolls
 
-            if (now < AnimationFrameStart)
-               AnimationFrameStart = now;
-            else
-            {
-               if ((now - AnimationFrameStart) > AnimationFrameLengthMs )      // Have I gone tooo long
-               {
-                  AnimationFrameStart = now;
-                  CurrentlyDisplayedFrameStart = now;
-               }
-               else
-                  AnimationFrameStart = AnimationFrameStart + AnimationFrameLengthMs;
-            }
-            refreshRequired = 1;
-            printf("<6>\n");
+            //printf("<6> Animation Refresh\n");
+            AnimationFrameStart = now;
+            // printf("<7>Animation --- Duration %lld, Start %llu, Len %llu\n", duration, AnimationFrameStart, AnimationFrameLengthMs);
+            
          }
-         
+         updateImage = 1;
+         // printf("Update Image Value %d\n", updateImage);
       }
    }
 
-   if (LastRefreshTime + 10 < SecondsTimer)
-   {
-      VMSDriver_Invalidate();
-      refreshRequired = 1;
-   }
+   // if (LastRefreshTime + 10 < SecondsTimer)
+   // {
+   //    VMSDriver_Invalidate();
+   // }
 
    if (DisplayFlashingCorners)
-      refreshRequired = 1;
-
-   //
-   // if the display needs to be refreshed, refresh it
-   //
-
-   if (refreshRequired)
    {
-      printf("<7>Do refresh\n\n");
-      VMSDriver_Clear(false);  // Empty buffer and clean display
+      CurrentlyDisplayedFrameIdx = 2;
+   } 
+      
 
-      // draw bitmap
-      if( 1 == CurrentlyDisplayedFrameIdx)
-      {
-         switch ( pDeviceInfo->bitmapsConfig[bcIdx].numFrames )
-         {
-            case 0:
-               // No bitmap
-               
-            break;
+   VMSDriver_Clear(false);  // Empty buffer and clean display
 
-            case 1:
-               VMSDriver_RenderBitmap((pDeviceInfo->bitmapsConfig[bcIdx].frames[0]) - 1, NULL);
-            break;
-
-            default:
-               int imageID = ((pDeviceInfo->bitmapsConfig[bcIdx].frames[AnimationFrameIdx]) - 1);
-               printf("<6>\t\t\tLoading image ---- %d\n\n", imageID);
-               VMSDriver_RenderBitmap(imageID, NULL);
-            break;
-         }
-      }
-      else
-      {
+   // draw bitmap
+   // printf("Current Frame to process %d\n", CurrentlyDisplayedFrameIdx);
+   switch( CurrentlyDisplayedFrameIdx )
+   {
+      case 0:
          // draw speed
          switch( pDeviceInfo->bitmapsConfig[bcIdx].speedDisplayMode )
          {
             case 1:
             case 2:
             {
-               printf("<6>\t\t\tPrinting Speed of %d\n\n", CurrentlyDisplayedSpeed);
-               int speed = CurrentlyDisplayedSpeed;
-               if (pDeviceInfo->unitType == 1)
+               if(CurrentlyDisplayedSpeed > 0)
                {
-                  int addKph = 0;
-                  speed = speed * 16093;
-                  if ((speed % 10000) >= 5000)
-                     addKph = 1;
-                  speed /= 10000;
-                  speed += addKph;
-               }
+                  printf("<6>\t\t\tPrinting Speed of %d\n\n", CurrentlyDisplayedSpeed);
+                  int speed = CurrentlyDisplayedSpeed;
+                  if (pDeviceInfo->unitType == 1)
+                  {
+                     int addKph = 0;
+                     speed = speed * 16093;
+                     if ((speed % 10000) >= 5000)
+                        addKph = 1;
+                     speed /= 10000;
+                     speed += addKph;
+                  }
 
-               VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bcIdx].x, pDeviceInfo->bitmapsConfig[bcIdx].y,
-                                 pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bcIdx].font);
+                  VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bcIdx].x, pDeviceInfo->bitmapsConfig[bcIdx].y,
+                                    pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bcIdx].font);
+                  
+                  refreshRequired = 1;
+               }
             }
             break;
 
             default:
             break;
          }
-      }
+      break;
 
-      if (DisplayFlashingCorners)
-      {
+      case 1:
+         if(1 == updateImage )
+         {
+            printf("<7>Updateing Image\t");
+            updateImage = 0;
+            switch ( pDeviceInfo->bitmapsConfig[bcIdx].numFrames )
+            {
+               case 0:
+                  // No bitmap
+                  printf("tNo image ---- ");
+               break;
+
+               case 1:
+                  VMSDriver_RenderBitmap((pDeviceInfo->bitmapsConfig[bcIdx].frames[0]) - 1, NULL);
+                  printf("Loading image ---- %d", bcIdx);
+                  refreshRequired = 1;
+               break;
+
+               default:
+                  int imageID = ((pDeviceInfo->bitmapsConfig[bcIdx].frames[AnimationFrameIdx]) - 1);
+                  printf("Loading image ---- %d", imageID);
+                  VMSDriver_RenderBitmap(imageID, NULL);
+                  refreshRequired = 1;
+               break;
+            }
+         }
+         printf("\n");
+      break;
+
+      case 2:
          printf("<6>Flashing Corners displayed \n\n");
          BitmapS corners;
          int width, height;
@@ -1277,16 +1287,30 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
             VMSDriver_RenderBitmap(1, &corners);
          else
             VMSDriver_RenderBitmap(1, &corners, 0);
-      } 
+
+         refreshRequired = 1;
+      break;
+
+      default:
+      break;
+   }
+   
+   
+
+
+   if( 1 == refreshRequired)
+   {
+      //printf("<6>Do refresh\n\n");
+      refreshRequired = 0;
 
       frameUpdate();
-
-      // Update locals
-      PrevBcIdx = bcIdx;
-
-      NumAnimationFrames = pDeviceInfo->bitmapsConfig[bcIdx].numFrames;
-      AnimationFrameLengthMs = pDeviceInfo->bitmapsConfig[bcIdx].frameLength;
    }
+
+   // Update locals for next loop
+   PrevBcIdx = bcIdx;
+
+   NumAnimationFrames = pDeviceInfo->bitmapsConfig[bcIdx].numFrames;
+   AnimationFrameLengthMs = pDeviceInfo->bitmapsConfig[bcIdx].frameLength;
 }
 
 
@@ -1700,7 +1724,7 @@ void *readVoltageThread(  void *argPtr )
          //FileRoutines_addLog(LOG_VOLTAGE_TOO_LOW, NULL);
          if(0 == disablePWM )
          {
-            printf(JOURNALD_LEVEL "PWM is being disabled due to low voltage detection\n");
+            printf("<1>PWM is being disabled due to low voltage detection\n");
             VMSDriver_LockDisplay();
             stopPwm(thePWMHandle);
             

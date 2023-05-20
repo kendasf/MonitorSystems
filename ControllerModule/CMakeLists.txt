@@ -78,5 +78,5 @@ add_custom_command( TARGET ${projectName}
 # Auto copy exe after cean build
 #add_custom_command( TARGET ${projectName} 
 #                     POST_BUILD 
-#                     COMMAND scp ${CMAKE_BINARY_DIR}/vms debian@10.0.2.18:/home/debian/testApp/
+#                     COMMAND scp ${CMAKE_BINARY_DIR}/vms debian@10.0.2.17:/home/debian/testApp/
 #                     )
