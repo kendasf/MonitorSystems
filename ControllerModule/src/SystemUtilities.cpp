@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <pthread.h>
 
+#include "main.h"
 #include "../Common/inc/pinctl.h"
 #include "SystemUtilities.h"
 
@@ -616,66 +617,66 @@ void setRun(unsigned char run)
         pwmRun = run;
 }
 
-#define BUFOE GPIO(3, 19)       // 115
-void *PwmTask(void *arg)
-{
-        int bufoeFd = -1;
-        int state = 0;
-        bufoeFd = pinctl::inst().export_pin(BUFOE, 0); // Output BUFOE
 
-        while (1)
-        {
-                if (pwmRun)
-                {
-                        int duration = 0;
+// void *PwmTask(void *arg)
+// {
+//         int bufoeFd = -1;
+//         int state = 0;
+//         bufoeFd = pinctl::inst().export_pin(BUFOE, 0); // Output BUFOE
 
-                        if (state)
-                        {
-                                duration = (pwmPeriod * pwmDuty); // On duriation
-                                if (duration > 0)
-                                        pinctl::inst().set(bufoeFd, state);
-                                state = 0;
-                        }
-                        else
-                        {
-                                duration = (pwmPeriod * (100 - pwmDuty));
-                                if (duration > 0)
-                                        pinctl::inst().set(bufoeFd, state);
-                                state = 1;
-                        }
+//         while (1)
+//         {
+//                 if (pwmRun)
+//                 {
+//                         int duration = 0;
 
-                        usleep(duration);
-                }
-                else // Stop
-                {
-                        if (state)
-                        {
-                                state = 0;
-                                pinctl::inst().set(bufoeFd, state);
-                        }
-                        usleep(100000);
-                }
-        }
-}
+//                         if (state)
+//                         {
+//                                 duration = (pwmPeriod * pwmDuty); // On duriation
+//                                 if (duration > 0)
+//                                         pinctl::inst().set(bufoeFd, state);
+//                                 state = 0;
+//                         }
+//                         else
+//                         {
+//                                 duration = (pwmPeriod * (100 - pwmDuty));
+//                                 if (duration > 0)
+//                                         pinctl::inst().set(bufoeFd, state);
+//                                 state = 1;
+//                         }
 
-pthread_t pwm_thread_id;
+//                         usleep(duration);
+//                 }
+//                 else // Stop
+//                 {
+//                         if (state)
+//                         {
+//                                 state = 0;
+//                                 pinctl::inst().set(bufoeFd, state);
+//                         }
+//                         usleep(100000);
+//                 }
+//         }
+// }
 
-void InitPwmTask(void)
-{
-        pthread_attr_t attr;
-        int status = pthread_attr_init(&attr);
-        if (status != 0)
-                printf("pthread_attr_init\n");
+// pthread_t pwm_thread_id;
 
-        printf("<5>Starting PWM monitor thread\n\n");
-        status = pthread_create(&pwm_thread_id, &attr, &PwmTask, NULL);
-        if (status != 0)
-                printf("pthread create failed for Listen Task\n");
+// void InitPwmTask(void)
+// {
+//         pthread_attr_t attr;
+//         int status = pthread_attr_init(&attr);
+//         if (status != 0)
+//                 printf("pthread_attr_init\n");
+
+//         printf("<5>Starting PWM monitor thread\n\n");
+//         status = pthread_create(&pwm_thread_id, &attr, &PwmTask, NULL);
+//         if (status != 0)
+//                 printf("pthread create failed for Listen Task\n");
         
-        status = pthread_setname_np(pwm_thread_id, "PWM Thread");
+//         status = pthread_setname_np(pwm_thread_id, "PWM Thread");
 
-        pthread_attr_destroy(&attr);
-}
+//         pthread_attr_destroy(&attr);
+// }
 
 int readRaw(int iFd, long lTmoMs)
 {

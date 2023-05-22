@@ -15,10 +15,7 @@
 #include <chrono>
 #include <cstdlib>
 
-#define BUFLE GPIO(3, 16)			// GPIO_112, P9.14		Shift Register Latch
-#define PWM_MONITOR GPIO(1,28)	// GPIO 60,  P9.12		PWM Edge Monitor
-
-#define bitmapSize ( (VMS_PANELS + 3) * VMS_WIDTH * VMS_HEIGHT / 8 )		// (36 + 3) * 8 * 10 / 8 = 39 * 8 * 10 / 8 = 39 * 10 = 390
+#define bitmapSize ( (VMS_PANELS) * VMS_WIDTH * VMS_HEIGHT / 8 )		// (36 + 3) * 8 * 10 / 8 = 39 * 8 * 10 / 8 = 39 * 10 = 390
 #define displaySize ( VMS_PANELS * VMS_WIDTH * VMS_HEIGHT / 8 )			// 36 * 8 * 10 * 8 = 36 * 10 = 360 
 
 
@@ -40,6 +37,8 @@ unsigned int trigger_Send = 0;
 pthread_t displayThreadID;
 char displayThreadRunning = 0;
 void *displayThread( void *argPtr );
+
+int LogicalPanelToPhysical(DeviceInfoS *pDeviceInfo, int panelID);
 
 inline void busy_usleep(int usecs) {
 	std::chrono::time_point<std::chrono::steady_clock> start_time = std::chrono::steady_clock::now();
@@ -64,7 +63,7 @@ void VMSDriver_Initialize()
 	bufleFd = pinctl::inst().export_pin(BUFLE, 0);  // 112
 	pinctl::inst().set(bufleFd, 0);
 
-	spi_dev = spi_ptr(new spi("/dev/spidev0.1", 1, 8, 8000000)); 	// Clock idle low, Transmit leading edge 
+	spi_dev = spi_ptr(new spi("/dev/spidev0.1", 0, 8, SPI_CLK_8M)); 	// Clock idle low, Transmit leading edge 
 
 	sem_init(&displayLock, 0, 1);
 
@@ -84,7 +83,11 @@ void VMSDriver_Initialize()
 
    res = pthread_setname_np(displayThreadID, "Display Thread");
 
-	VMSDriver_Clear(true);		
+	pinctl::inst().set(bufleFd, 0);
+	VMSDriver_Clear(true);
+	pinctl::inst().set(bufleFd, 1);
+	pinctl::inst().set(bufleFd, 0);
+	pinctl::inst().set(bufleFd, 1);
 } 
 
 void VMSDriver_LockDisplay()
@@ -111,7 +114,14 @@ void VMSDriver_shutdown()
 //
 void SetDisplayLE(void)
 {
+	// struct timespec delay, timeLeft;
+
+	// delay.tv_nsec = (500) * (1000);
+	// delay.tv_sec = 0;
+
 	pinctl::inst().set(bufleFd, 1);
+
+	// nanosleep(&delay, &timeLeft);
 }
 
 void ClearDisplayLE(void)
@@ -122,7 +132,7 @@ void ClearDisplayLE(void)
 void SpiSendPanel(unsigned char * data, int len)
 {
 	if (spi_dev)
-	{		
+	{	
 		waitPwmOff(thePWMHandle);			// Wait for PWM to go off - then you have 13.477ms to transmit with no PWM noise
 		spi_dev->write(data, len);			// 8Mhz - 360bytes =  360us tx time
 		SetDisplayLE();
@@ -142,7 +152,7 @@ void *displayThread( void *argPtr )
    
    pthread_attr_init(&threadAttrs);
 
-   param.sched_priority = 2;
+	param.sched_priority = 5;
    res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
    //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
    if( 0 != res )
@@ -153,17 +163,62 @@ void *displayThread( void *argPtr )
 
 	while( 1 == displayThreadRunning )
 	{
+		int i, j;
+		DeviceInfoS deviceInfo;
+		unsigned char spi_stream[sizeof(VMSBitmap)];
+
 		if( spi_buffLen  > 0)
 		{
+			FileRoutines_readDeviceInfo(&deviceInfo);	
+
 			sem_wait(&displayLock);
-			SpiSendPanel(spi_buff, spi_buffLen);
+
+			for(j = VMS_PANELS - 1; j >= 0; j--)
+			{
+				int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
+
+				memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &spi_buff[panelOffset], VMS_HEIGHT);
+
+			}
+
 			spi_buffLen = 0;
 			free(spi_buff);
+
 			sem_post(&displayLock);
+
+			// printf("Sending Map - - - %d\n", sizeof(VMSBitmap));
+			// int lastLine = 0;
+			// int line = 0;
+			// printf("Panel %02d\t", line);
+			// for(int i = 0; i < sizeof(VMSBitmap); i++)
+			// {
+			// 	if(lastLine != line)
+			// 	{
+			// 		printf("Panel %02d\t", line);
+			// 		lastLine = line;
+			// 	}
+			// 	printf("0x%02X\t", spi_stream[i]);
+			// 	if( (0 == i % 10) && (i != 0)  )
+			// 	{
+			// 		printf("\n");
+			// 		line++;
+			// 	}
+			// }
+			// printf("\n- - - - \n\n\n\n");
+
+			if (memcmp(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap)) != 0)	// Last frame matches this frame
+			{
+				
+				SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
+				
+				memset(spi_stream, 0, sizeof(VMSBitmap));
+				memcpy(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap));	// Update Last frame
+				
+			}
 		}
 		else
 		{
-			nanosleep(&delay, &timeLeft);		// Allow 5ms to settle
+			nanosleep(&delay, &timeLeft);
 		}
 	}
 
@@ -299,85 +354,13 @@ int VMSDriver_UpdateFrame()
 //
 int VMSDriver_UpdateFrameFast()
 {
-	int i, j;
-	DeviceInfoS deviceInfo;
-	unsigned char spi_stream[sizeof(VMSBitmap)];
-	bool rotate180 = false;
-	struct timespec delay, timeLeft;
-
-	delay.tv_nsec = (100) * (1000);
-	delay.tv_sec = 0;
-
-	FileRoutines_readDeviceInfo(&deviceInfo);	
-
 	
+	sem_wait(&displayLock);
+		spi_buffLen = bitmapSize;
+		spi_buff = (unsigned char *)malloc(bitmapSize * sizeof(unsigned char));
+		memcpy(spi_buff, &VMSBitmap, bitmapSize);
+	sem_post(&displayLock);
 	
-	for(j = VMS_PANELS - 1; j >= 0; j--)
-	{
-		int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
-
-		memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &VMSBitmap[panelOffset], VMS_HEIGHT);
-
-		if (rotate180) {
-			for(i = 0; i < VMS_HEIGHT / 2; i++) {
-				unsigned char* pa = &spi_stream[VMS_HEIGHT * (VMS_PANELS - 1 - j) + i];
-				unsigned char* pb = &spi_stream[VMS_HEIGHT * (VMS_PANELS - 1 - j) + (VMS_HEIGHT - 1 - i)];
-				unsigned char t = *pa;
-				*pa = *pb;
-				*pb = t;
-
-				for(int k = 0; k < 4; k++) {
-					if ((((*pa) & (1 << k)) >> k) != (((*pa) & (1 << (7 - k))) >> (7 - k)))
-						*pa = *pa xor ((1 << k) | (1 << (7 - k)));
-
-					if ((((*pb) & (1 << k)) >> k) != (((*pb) & (1 << (7 - k))) >> (7 - k)))
-						*pb = *pb xor ((1 << k) | (1 << (7 - k)));
-				}
-			}
-		}
-	}
-
-	// printf("Sending Map - - - %d\n", sizeof(VMSBitmap));
-	// int lastLine = 0;
-	// int line = 0;
-	// printf("Panel %02d\t", line);
-	// for(int i = 0; i < sizeof(VMSBitmap); i++)
-	// {
-	// 	if(lastLine != line)
-	// 	{
-	// 		printf("Panel %02d\t", line);
-	// 		lastLine = line;
-	// 	}
-	// 	printf("0x%02X\t", spi_stream[i]);
-	// 	if( (0 == i % 10) && (i != 0)  )
-	// 	{
-	// 		printf("\n");
-	// 		line++;
-	// 	}
-	// }
-	// printf("\n- - - - \n\n\n\n");
-
-	if (memcmp(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap)) != 0)	// Last frame matches this frame
-	{
-		
-
-		spi_buffLen = VMS_PANELS * VMS_HEIGHT;
-		spi_buff = (unsigned char *)malloc(spi_buffLen * sizeof(unsigned char));
-		memcpy(spi_buff, &spi_stream, spi_buffLen);
-		trigger_Send = 1;
-		
-		sem_post(&displayLock);
-
-		memset(spi_stream, 0, sizeof(VMSBitmap));
-		memcpy(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap));	// Update Last frame
-		
-		sem_wait(&displayLock);
-	}
-
-	nanosleep(&delay, &timeLeft);
-
-	
-
 	return 1;
 }
 
@@ -841,11 +824,11 @@ void VMSDriver_WriteSpeed(int x, int y, int panelsConfig, int speed, int font)
 //
 void VMSDriver_SetPixel(unsigned int x, unsigned int y)
 {
-	int panelOffset = (x / VMS_WIDTH) * (VMS_WIDTH * VMS_HEIGHT / 8);
+	int panelOffset = (x / VMS_WIDTH) * (VMS_WIDTH * VMS_HEIGHT / 8);								// x / 8 * (8 * 10 / 8) = x / 8 * 10	, x can be 0 -> 720
 	if ((x < 0) || (x >= VMS_WIDTH * VMS_PANELS) || (y < 0) || (y >= VMS_HEIGHT))
 		return;
 
-	if ((VMS_HEIGHT - y - 1 + panelOffset) >= (VMS_PANELS * VMS_WIDTH * VMS_HEIGHT / 8))
+	if ((VMS_HEIGHT - y - 1 + panelOffset) >= (displaySize))		// 10 - y - 1 + ()
 		return;
 
 	VMSBitmap[VMS_HEIGHT - y - 1 + panelOffset] |= (1 << (x % VMS_WIDTH));
@@ -1374,17 +1357,19 @@ void VMSDriver_RenderBitmapToPanels(int bmpWidth, int bmpHeight, int firstPanel,
 		panelHeight = VMS_WIDTH;
 	}
 
+	memset(VMSBitmap, 0, sizeof(VMSBitmap));
 	for(y = 0; y < bmpHeight; y++)
 	{
-		for(x = 0; x < bmpWidth; x++)
+		for(x = 0; x < bmpWidth - 1; x++)
 		{
 			int bmpPixelPos = y * MAX_BMP_WIDTH + x;
 			if (pBitmap->bitmapData[bmpPixelPos >> 3] & (1 << (bmpPixelPos & 0x07)))
 			{
 				int xPos = x % panelWidth;
 				int yPos = y % panelHeight;
-				int logicalPanelOffset = panelsCols * (y / panelHeight) + (x / panelWidth);
+				int logicalPanelOffset = panelsCols * (y / panelHeight) + (x / panelWidth);	// 3 * (24 / 8) + (30 / 10) = 3 * 4 * 3 = 36
 				int panelOffset = (firstPanel + logicalPanelOffset)* VMS_WIDTH;
+				
 
 				if (bLandscape) {
 					if (color)
@@ -1478,7 +1463,7 @@ void VMSDriver_RunStartSequence()
 	start_seq_running = 1;
 
 	delay.tv_sec = 0;
-	delay.tv_nsec	= (65) * (1000) * (1000); 
+	delay.tv_nsec	= (33) * (1000) * (1000); 
 
 	VMSDriver_Clear(true);
 
@@ -1510,8 +1495,6 @@ void VMSDriver_RunStartSequence()
 		nanosleep(&delay, &timeLeft);
 
 	}
-
-	start_seq_running = 0;
 
 	//RunChristmasSequence();
 }

@@ -29,7 +29,7 @@ static TCB radarTaskTCB;
 static uart_ptr radar_uart;
 static int RADAR_DEBUG = 0;
 
-#define RADAR_POWER  GPIO(2,1)  // P8.18 Active High Radar Power
+
 
 #define MAX_RADAR_SENTENCE_LENGTH	512
 char Radar_IncomingSentence[MAX_RADAR_SENTENCE_LENGTH];
@@ -173,6 +173,8 @@ void Radar_ReceiveData(DeviceInfoS *pDeviceInfo)
 	{
 		Radar_ReceiveByte(ch, pDeviceInfo);
 	}
+
+	Radar_DetermineSpeedForDisplay(pDeviceInfo);
 }
 
 void Radar_ReceiveByte(unsigned char byte, DeviceInfoS *pDeviceInfo)
@@ -346,6 +348,7 @@ void Radar_ReceiveNMEASentence_RDTGT(char *pSentence, DeviceInfoS *pDeviceInfo)
 		
 		LastSpeed = speed / 10;
 		LastSpeedTime = GetTickCount();
+		// printf("<1>Got Speed  - %d\n", LastSpeed);
 		if (RADAR_DEBUG)
 		{
 			if (printInfo)
@@ -546,9 +549,9 @@ void* radarTask(void* argPtr)
    
    pthread_attr_init(&threadAttrs);
 
-   param.sched_priority = 8;
-   // res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-	res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   param.sched_priority = 4;
+   res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+	//res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
    if( 0 != res )
    {
       strerror(errno);
@@ -601,6 +604,7 @@ void* radarTask(void* argPtr)
 		{
 			if (FD_ISSET(radar_uart->fd(), &fdr))
 			{
+				//printf("<1>Radar Reported\n");
 				serialActive = 1;
 				Radar_ReceiveData(&DeviceInfo);
 			}

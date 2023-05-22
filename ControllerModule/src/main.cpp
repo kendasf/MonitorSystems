@@ -149,11 +149,7 @@ extern int LastSpeed;
 
 static sem_t displaySem;
 
-#define XB_RESET GPIO(1, 1)     // P8.24 Active Low XBreset
-#define XB_SLEEP GPIO(1, 29)    // P8.26 Active Low XB Sleep
-#define XB_POWER GPIO(2, 24)    // P8.28 Active High XB Power
-#define PANEL_FLASH GPIO(2, 25) // P8.30 Active High Panel Flasher
-#define CAMERA_POWER GPIO(1, 15) // P8.15 Active High Camera Power - GPIO 47
+
 
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_reads;
 std::vector<gnode::fs::pending_info> gnode::fs::_pending_writes;
@@ -447,7 +443,7 @@ int main(int argc, char *argv[])
    initPWMDriver(); /* This sets up the structures to drive the PWM */
 
    // init PWM
-   thePWMHandle = createPWM(0, pwmPeriod, 1);
+   thePWMHandle = createPWM(0, pwmPeriod, 1);   // Pin is assigned by Device Tree
    setPwmDuty(thePWMHandle, 0ul);
    startPwm(thePWMHandle);
    
@@ -547,7 +543,7 @@ int main(int argc, char *argv[])
 
 // Config for shutdown ping usage
 #ifdef USE_SHUTDOWN
-   shutdownPinFd = pinctl::inst().export_pin(GPIO(2, 13), 1);
+   shutdownPinFd = pinctl::inst().export_pin(SHUTDOWN, 1);
    shutdownEnabled = pinctl::inst().get(shutdownPinFd);
    if (shutdownEnabled)
       printf("<5>Shutdown Monitor Enabled\n");
@@ -652,15 +648,18 @@ int main(int argc, char *argv[])
       {
          int speedBefore = speedToDisplay;
 
-         speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
-         //printf("<7>\t\tDetection - - %d - -\n\n", speedToDisplay);
+         
+         // speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
+         speedToDisplay = Radar_GetLastSpeed();
+         //printf("<3> Checking SPeed - %d\n", speedToDisplay);
+
          if (lastSpeedToDisplay != speedToDisplay)
          {
             int blinkLimit = deviceInfo.blinkLimit;
             int displaySpeed = speedToDisplay;
 
             lastSpeedToDisplay = speedToDisplay;
-            printf("<6>\t\tNew Speed: %d mph\r\n", speedToDisplay);
+            printf("<3>\t\tNew Speed: %d mph\r\n", speedToDisplay);
             // Send Command to Camera
             if (deviceInfo.unitType == 1)                         /* Convert KPH to MPH */ 
             {                                                     /* TODO - this gets truncated due to type */
@@ -725,7 +724,9 @@ int main(int argc, char *argv[])
          }
 
          if ((!bStandby) || DisplayFlashingCorners)
+         {  
             DisplaySpeed(speedToDisplay, &deviceInfo);
+         }
          else
             VMSDriver_Clear(true);
 
@@ -881,8 +882,6 @@ int main(int argc, char *argv[])
       }
 #endif
 
-
-      pthread_yield();
    }
 
    autoDimThreadRunning = 0;
@@ -1124,7 +1123,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    //
    if (speedToDisplay != CurrentlyDisplayedSpeed)
    {
-      printf("<7>Update Speed\n");
+      printf("<6>Updating Speed - %d\n", speedToDisplay);
       int forceResetAnim = -1;
       CurrentlyDisplayedSpeed = speedToDisplay;
 
@@ -1220,7 +1219,7 @@ void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo)
             {
                if(CurrentlyDisplayedSpeed > 0)
                {
-                  printf("<6>\t\t\tPrinting Speed of %d\n\n", CurrentlyDisplayedSpeed);
+                  //printf("<6>\t\t\tPrinting Speed of %d\n\n", CurrentlyDisplayedSpeed);
                   int speed = CurrentlyDisplayedSpeed;
                   if (pDeviceInfo->unitType == 1)
                   {

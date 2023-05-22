@@ -4,7 +4,7 @@
 #include <semaphore.h>
 
 #define PWM_PERIOD 13888888    // Max 3.3MHz for the display shifters - this is period in ns so 8 000 000 ns = 125Hz
-#define PWMMAX 3             // Max duty cycle that we allow in this system - on time of 2 880 000 ns
+#define PWMMAX 15             // Max duty cycle that we allow in this system - on time of 2 880 000 ns
 
 
 struct pwm_control_block

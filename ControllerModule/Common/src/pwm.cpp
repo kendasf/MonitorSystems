@@ -308,7 +308,12 @@ void waitPwmOff(pwmHandle pwmHdl)
 	do{
 		; // Off wait for beginning of next off
 	}
-   while (1 == pinctl::inst().get(pwmMonitorFd));
+   while (0 == pinctl::inst().get(pwmMonitorFd));
+
+	do{
+		; // Off wait for beginning of next off
+	}
+   while (0 == pinctl::inst().get(pwmMonitorFd));
 }
 
 

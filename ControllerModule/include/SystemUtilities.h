@@ -18,7 +18,7 @@
 
 typedef int FILEHANDLE;
 
-#define GPIO(A, B) (A*32 + B)
+
 
 #define OPEN_A ((int) (O_WRONLY | O_APPEND | O_CREAT))
 #define OPEN_R ((int) O_RDONLY)

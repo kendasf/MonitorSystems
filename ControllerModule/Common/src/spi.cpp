@@ -23,7 +23,7 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
 
    while( _fd < 0 && count < 10)
    {
-      _fd = open(device, O_RDWR);
+      _fd = open(device, O_RDWR | O_NONBLOCK);
       if (_fd < 0)
       {
          printf("spi: can't open device %s\n", device);
@@ -39,9 +39,30 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
       return;  /* Failed to allocated SPI */
    }
    
-   
+   sleep(2);
    printf("spi: starting \n");
    
+   // max speed hz
+   ret = ioctl(_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
+   if (ret == -1)
+      printf("spi: can't set max speed hz\n");
+
+
+   ret = ioctl(_fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
+   if (ret == -1)
+      printf("spi: can't get max speed hz\n");
+
+      printf("SPI speed %d Hz\n", speed);
+
+   // bits per word
+   ret = ioctl(_fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
+   if (ret == -1)
+      printf("spi: can't set bits per word\n");
+
+   ret = ioctl(_fd, SPI_IOC_RD_BITS_PER_WORD, &bits);
+   if (ret == -1)
+      printf("spi: can't get bits per word\n");
+
    switch(mode)
    {
       default:
@@ -68,43 +89,22 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    // spi mode
    
    if (ret == -1)
-      printf("spi: can't set spi mode\n");
+       printf("spi: can't get spi write mode - %d\n", errno);
 
    if (ret2 == -1)
-      printf("spi: can't get spi mode\n");
-
-   // bits per word
-   ret = ioctl(_fd, SPI_IOC_WR_BITS_PER_WORD, &bits);
-   if (ret == -1)
-      printf("spi: can't set bits per word\n");
-
-   ret = ioctl(_fd, SPI_IOC_RD_BITS_PER_WORD, &bits);
-   if (ret == -1)
-      printf("spi: can't get bits per word\n");
-
-   // max speed hz
-   ret = ioctl(_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-   if (ret == -1)
-      printf("spi: can't set max speed hz\n");
-
-
-   ret = ioctl(_fd, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-   if (ret == -1)
-      printf("spi: can't get max speed hz\n");
-
-      printf("SPI speed %d Hz\n", speed);
+      printf("spi: can't get spi read mode - %d\n", errno);
 }
 
 void spi::write(unsigned char *msg, int len) {
-   memset(_rx, 0xFF, sizeof(_rx));
-   memset(_tx, 0, sizeof(_tx));  
+   memset(_rx, 0x0, sizeof(_rx));
+   memset(_tx, 0x0, sizeof(_tx));  
    memcpy(_tx, msg, len);
    transfer(len);
 }
 
 void spi::flush(void) {
-   memset(_rx, 0xFF, sizeof(_rx));
-   memset(_tx, 0, sizeof(_tx));
+   memset(_rx, 0x0, sizeof(_rx));
+   memset(_tx, 0x0, sizeof(_tx));
    transfer(sizeof(_tx));
 }
 
@@ -113,10 +113,18 @@ void spi::transfer(int len) {
 
    tr.tx_buf = (unsigned long)_tx;
    tr.rx_buf = (unsigned long)_rx;
+
    tr.len = len;
+   
    tr.delay_usecs = _delay;
    tr.speed_hz = _speed;
+   
    tr.bits_per_word = _bits;
+   
+   tr.cs_change = 0;
+   
+   
+   
 
    if (_fd < 0) 
    {

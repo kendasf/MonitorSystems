@@ -24,6 +24,20 @@
 
 #define BASE_DATA "/store"
 
+// GPIO 
+#define GPIO(A, B) (A*32 + B)
+#define BUFLE GPIO(3, 16)			// GPIO_112, P9.14		Shift Register Latch
+#define PWM_MONITOR GPIO(1,28)	// GPIO 60,  P9.12		PWM Edge Monitor
+#define XB_RESET GPIO(1, 1)     // P8.24 Active Low XBreset
+#define XB_SLEEP GPIO(1, 29)    // P8.26 Active Low XB Sleep
+#define XB_POWER GPIO(2, 24)    // P8.28 Active High XB Power
+#define PANEL_FLASH GPIO(2, 25) // P8.30 Active High Panel Flasher
+#define CAMERA_POWER GPIO(1, 15) // P8.15 Active High Camera Power - GPIO 47
+#define SHUTDOWN GPIO(2, 13)
+#define BUFOE GPIO(3, 19)       // 115
+#define RADAR_POWER  GPIO(2,1)  // P8.18 Active High Radar Power
+
+
 extern int TestModeBitmap;
 extern int TestModeDuration;
 extern int flashDrivePresent;
