@@ -29,6 +29,7 @@ extern pwmHandle thePWMHandle;
 extern unsigned long pwmDuty;
 
 sem_t displayLock;
+sem_t displayUpdate;
 char start_seq_running = 0;
 
 unsigned char *spi_buff = NULL;
@@ -63,9 +64,10 @@ void VMSDriver_Initialize()
 	bufleFd = pinctl::inst().export_pin(BUFLE, 0);  // 112
 	pinctl::inst().set(bufleFd, 0);
 
-	spi_dev = spi_ptr(new spi("/dev/spidev0.1", 0, 8, SPI_CLK_8M)); 	// Clock idle low, Transmit leading edge 
+	spi_dev = spi_ptr(new spi("/dev/spidev0.1", 0, 8, SPI_CLK_4M)); 	// Clock idle low, Transmit leading edge 
 
 	sem_init(&displayLock, 0, 1);
+	sem_init(&displayUpdate, 0, 1);
 
 	pthread_attr_t threadAttrs;
    pthread_attr_init(&threadAttrs);
@@ -116,7 +118,7 @@ void SetDisplayLE(void)
 {
 	// struct timespec delay, timeLeft;
 
-	// delay.tv_nsec = (500) * (1000);
+	// delay.tv_nsec = (5) * (1000) * (1000);
 	// delay.tv_sec = 0;
 
 	pinctl::inst().set(bufleFd, 1);
@@ -147,8 +149,8 @@ void *displayThread( void *argPtr )
    pthread_attr_t threadAttrs;
 	struct timespec delay, timeLeft;
 
-	delay.tv_nsec = (5) * (1000) * (1000);
-	delay.tv_sec = 0;
+	// delay.tv_nsec = (5) * (1000) * (1000);
+	// delay.tv_sec = 0;
    
    pthread_attr_init(&threadAttrs);
 
@@ -167,24 +169,27 @@ void *displayThread( void *argPtr )
 		DeviceInfoS deviceInfo;
 		unsigned char spi_stream[sizeof(VMSBitmap)];
 
+		sem_wait(&displayUpdate);
 		if( spi_buffLen  > 0)
 		{
 			FileRoutines_readDeviceInfo(&deviceInfo);	
 
-			sem_wait(&displayLock);
+			// for(j = VMS_PANELS - 1; j >= 0; j--)
+			// {
+			// 	int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
 
-			for(j = VMS_PANELS - 1; j >= 0; j--)
+			// 	memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &spi_buff[panelOffset], VMS_HEIGHT);
+
+			// }
+
+			for( j = 0; j < VMS_PANELS; j++)
 			{
 				int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
 
 				memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &spi_buff[panelOffset], VMS_HEIGHT);
-
 			}
 
-			spi_buffLen = 0;
-			free(spi_buff);
-
-			sem_post(&displayLock);
+			
 
 			// printf("Sending Map - - - %d\n", sizeof(VMSBitmap));
 			// int lastLine = 0;
@@ -206,19 +211,21 @@ void *displayThread( void *argPtr )
 			// }
 			// printf("\n- - - - \n\n\n\n");
 
-			if (memcmp(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap)) != 0)	// Last frame matches this frame
-			{
+			// if (memcmp(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap)) != 0)	// Last frame matches this frame
+			// {
 				
-				SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
+			// 	SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
 				
-				memset(spi_stream, 0, sizeof(VMSBitmap));
-				memcpy(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap));	// Update Last frame
+			// 	memset(spi_stream, 0, sizeof(VMSBitmap));
+			// 	memcpy(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap));	// Update Last frame
 				
-			}
-		}
-		else
-		{
-			nanosleep(&delay, &timeLeft);
+			// }
+			SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
+
+			spi_buffLen = 0;
+			free(spi_buff);
+
+			sem_post(&displayLock);
 		}
 	}
 
@@ -359,7 +366,7 @@ int VMSDriver_UpdateFrameFast()
 		spi_buffLen = bitmapSize;
 		spi_buff = (unsigned char *)malloc(bitmapSize * sizeof(unsigned char));
 		memcpy(spi_buff, &VMSBitmap, bitmapSize);
-	sem_post(&displayLock);
+	sem_post(&displayUpdate);
 	
 	return 1;
 }
@@ -1463,7 +1470,7 @@ void VMSDriver_RunStartSequence()
 	start_seq_running = 1;
 
 	delay.tv_sec = 0;
-	delay.tv_nsec	= (33) * (1000) * (1000); 
+	delay.tv_nsec	= (66) * (1000) * (1000); 
 
 	VMSDriver_Clear(true);
 
@@ -1495,6 +1502,27 @@ void VMSDriver_RunStartSequence()
 		nanosleep(&delay, &timeLeft);
 
 	}
+
+	// for(i = 0; i < VMS_PANELS; i++ )			
+	// {
+	// 	int offset = (i * (VMS_HEIGHT * VMS_WIDTH) );
+	// 	printf("<7> Panel %d\n", i);
+	// 	for(j = 0; j < VMS_HEIGHT; j++)
+	// 	{
+	// 		printf("<7>Column %d\n", j);
+	// 		for(k = 0; k < VMS_WIDTH; k++)
+	// 		{
+	// 			//printf("<7>Row %d\t", k);
+	// 			VMSDriver_SetPixel(k + offset, j);
+
+	// 			VMSDriver_UpdateFrameFast();
+
+	// 			nanosleep(&delay, &timeLeft);
+	// 		}
+	// 	}
+	// }
+
+	
 
 	//RunChristmasSequence();
 }

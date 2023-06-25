@@ -23,7 +23,7 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
 
    while( _fd < 0 && count < 10)
    {
-      _fd = open(device, O_RDWR | O_NONBLOCK);
+      _fd = open(device, O_RDWR); // | O_NONBLOCK);
       if (_fd < 0)
       {
          printf("spi: can't open device %s\n", device);
@@ -42,6 +42,12 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    sleep(2);
    printf("spi: starting \n");
    
+   // Set LSB
+   // uint32_t lsb = 1;
+   // ret = ioctl(_fd, SPI_IOC_WR_LSB_FIRST, &lsb);
+   // if (ret == -1)
+   //    printf("spi: can't set lsb hz\n");
+
    // max speed hz
    ret = ioctl(_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
    if (ret == -1)
@@ -67,23 +73,23 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
    {
       default:
       case 0:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_0);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_0);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_0);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_0);
          break;
 
       case 1:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_1);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_1);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_1);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_1);
       break;
 
       case 2:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_2);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_2);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_2);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_2);
       break;
 
       case 3:
-         ret = ioctl(_fd, SPI_IOC_WR_MODE32, SPI_MODE_3);
-         ret2 = ioctl(_fd, SPI_IOC_RD_MODE32, SPI_MODE_3);
+         ret = ioctl(_fd, SPI_IOC_WR_MODE, SPI_MODE_3);
+         ret2 = ioctl(_fd, SPI_IOC_RD_MODE, SPI_MODE_3);
       break;
    }
    // spi mode
@@ -96,10 +102,21 @@ spi::spi(char *device, uint8_t mode, uint8_t bits, uint32_t speed) : _speed(spee
 }
 
 void spi::write(unsigned char *msg, int len) {
+   int left = 0;
+   int buffSize  = sizeof(_tx);
    memset(_rx, 0x0, sizeof(_rx));
-   memset(_tx, 0x0, sizeof(_tx));  
-   memcpy(_tx, msg, len);
-   transfer(len);
+   memset(_tx, 0x0, buffSize);
+   
+   left = len;
+   while( left > buffSize)
+   {
+      left = left - buffSize;
+      memcpy(_tx, msg, buffSize);
+      msg += buffSize;
+      transfer(buffSize);
+   }
+   memcpy(_tx, msg, left);
+   transfer(left);
 }
 
 void spi::flush(void) {
@@ -115,17 +132,10 @@ void spi::transfer(int len) {
    tr.rx_buf = (unsigned long)_rx;
 
    tr.len = len;
-   
    tr.delay_usecs = _delay;
    tr.speed_hz = _speed;
-   
    tr.bits_per_word = _bits;
    
-   tr.cs_change = 0;
-   
-   
-   
-
    if (_fd < 0) 
    {
       printf("spi: file not open\n");
