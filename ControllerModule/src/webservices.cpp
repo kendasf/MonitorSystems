@@ -94,9 +94,9 @@ webservices::webservices() {
     
     pthread_attr_init(&threadAttrs);
 
-    param.sched_priority = 20;
-    res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
-    //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+    param.sched_priority = 1;
+    //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+    res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
     if( 0 != res )
     {
         strerror(errno);

@@ -15,7 +15,7 @@
 #include <chrono>
 #include <cstdlib>
 
-#define bitmapSize ( (VMS_PANELS) * VMS_WIDTH * VMS_HEIGHT / 8 )		// (36 + 3) * 8 * 10 / 8 = 39 * 8 * 10 / 8 = 39 * 10 = 390
+#define bitmapSize ( (VMS_PANELS + 3) * VMS_WIDTH * VMS_HEIGHT / 8 )		// (36 + 3) * 8 * 10 / 8 = 39 * 8 * 10 / 8 = 39 * 10 = 390
 #define displaySize ( VMS_PANELS * VMS_WIDTH * VMS_HEIGHT / 8 )			// 36 * 8 * 10 * 8 = 36 * 10 = 360 
 
 
