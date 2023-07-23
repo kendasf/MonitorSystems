@@ -123,7 +123,7 @@ unsigned short UDPCallback(unsigned char socket, unsigned char *remip, unsigned 
 // timing globals
 //
 unsigned long long SecondsTimer = 0;
-float SupplyVoltageLevel = 0.0f;
+float SupplyVoltageLevel = 12.0f;
 
 #define MAX_COMM_SENTENCE_LENGTH 820
 
@@ -649,8 +649,8 @@ int main(int argc, char *argv[])
          int speedBefore = speedToDisplay;
 
          
-         // speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
-         speedToDisplay = Radar_GetLastSpeed();
+         speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
+         //speedToDisplay = Radar_GetLastSpeed();
          //printf("<3> Checking SPeed - %d\n", speedToDisplay);
 
          if (lastSpeedToDisplay != speedToDisplay)
@@ -1640,11 +1640,11 @@ void *readLuxThread(  void *argPtr )
          
          if( LuxMeterLPF > lux )  // Down slope
          {
-            LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+            LuxMeterLPF = (LuxMeterLPF * 0.99) + (lux * 0.01);
          }
          else
          {
-            LuxMeterLPF = (LuxMeterLPF * 0.9) + (lux * 0.1);
+            LuxMeterLPF = (LuxMeterLPF * 0.989) + (lux * 0.01);
          }
 
          luxPrint++;
@@ -1662,7 +1662,7 @@ void *readLuxThread(  void *argPtr )
    return 0;
 }
 
-#define voltageSleep 250
+#define voltageSleep 100
 void *readVoltageThread(  void *argPtr )
 {
    int lowVoltCounter = 0;
@@ -1679,9 +1679,9 @@ void *readVoltageThread(  void *argPtr )
    
    pthread_attr_init(&threadAttrs);
 
-   param.sched_priority = 10;
-   //res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
-   res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
+   param.sched_priority = 2;
+   res = pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
+   //res = pthread_setschedparam(pthread_self(), SCHED_OTHER, &param);
    if( 0 != res )
    {
       strerror(errno);
@@ -1709,7 +1709,7 @@ void *readVoltageThread(  void *argPtr )
       else
       {
          // Poor mans LPF - will cause ramp up over about 20 Seconds
-         SupplyVoltageLevel = (SupplyVoltageLevel * 0.75) + (calcV * 0.25);
+         SupplyVoltageLevel = (SupplyVoltageLevel * 0.99) + (calcV * 0.01);
       }
 
 

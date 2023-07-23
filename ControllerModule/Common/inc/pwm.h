@@ -3,19 +3,17 @@
 
 #include <semaphore.h>
 
-// Frequencies are in ns so 1/f * 1e-9 = ns
-#define HZ_8k  	 125000
-#define HZ_4k  	 250000
-#define HZ_2k  	 500000
-#define HZ_1k 		1000000
+// Frequencies are in ns so 1/f / 1e-9 = ns
 #define HZ_500  	2000000
 #define HZ_250  	4000000
 #define HZ_125  	8000000
-#define HZ_90   	1111111
-#define HZ_72   	1388888
-#define HZ_60   	1666666
-#define PWM_PERIOD HZ_4k
-#define PWMMAX 40
+#define HZ_100		10000000
+#define HZ_90   	11111111
+#define HZ_75		13333333
+#define HZ_72   	13888888
+#define HZ_60   	16666668
+#define PWM_PERIOD HZ_100
+#define PWMMAX 18
 
 
 struct pwm_control_block
