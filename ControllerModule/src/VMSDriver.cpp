@@ -1367,7 +1367,7 @@ void VMSDriver_RenderBitmapToPanels(int bmpWidth, int bmpHeight, int firstPanel,
 	memset(VMSBitmap, 0, sizeof(VMSBitmap));
 	for(y = 0; y < bmpHeight; y++)
 	{
-		for(x = 0; x < bmpWidth - 1; x++)
+		for(x = 0; x < bmpWidth; x++)
 		{
 			int bmpPixelPos = y * MAX_BMP_WIDTH + x;
 			if (pBitmap->bitmapData[bmpPixelPos >> 3] & (1 << (bmpPixelPos & 0x07)))
