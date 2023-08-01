@@ -37,7 +37,6 @@ void VMSDriver_SetPixel(unsigned int x, unsigned int y);
 void VMSDriver_ClearPixel(unsigned int x, unsigned int y);
 
 void VMSDriver_Clear(bool doUpdate);
-void VMSDriver_White(unsigned char val);
 int VMSDriver_Test(void);
 
 void VMSDriver_WriteXLargeChar(int xPos, int yPos, int width, int height, BitmapS *pBitmap, const unsigned char Digit[24][16]);

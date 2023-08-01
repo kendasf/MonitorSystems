@@ -174,22 +174,12 @@ void *displayThread( void *argPtr )
 		{
 			FileRoutines_readDeviceInfo(&deviceInfo);	
 
-			// for(j = VMS_PANELS - 1; j >= 0; j--)
-			// {
-			// 	int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
-
-			// 	memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &spi_buff[panelOffset], VMS_HEIGHT);
-
-			// }
-
 			for( j = 0; j < VMS_PANELS; j++)
 			{
 				int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
 
 				memcpy(spi_stream + VMS_HEIGHT * (VMS_PANELS - 1 - j), &spi_buff[panelOffset], VMS_HEIGHT);
 			}
-
-			
 
 			// printf("Sending Map - - - %d\n", sizeof(VMSBitmap));
 			// int lastLine = 0;
@@ -211,15 +201,6 @@ void *displayThread( void *argPtr )
 			// }
 			// printf("\n- - - - \n\n\n\n");
 
-			// if (memcmp(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap)) != 0)	// Last frame matches this frame
-			// {
-				
-			// 	SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
-				
-			// 	memset(spi_stream, 0, sizeof(VMSBitmap));
-			// 	memcpy(PrevVMSBitmap, spi_stream, sizeof(VMSBitmap));	// Update Last frame
-				
-			// }
 			SpiSendPanel(spi_stream, VMS_PANELS * VMS_HEIGHT);
 
 			spi_buffLen = 0;
@@ -346,7 +327,7 @@ int VMSDriver_UpdateFrame()
 		int panelOffset = LogicalPanelToPhysical(&deviceInfo, j)*(VMS_WIDTH * VMS_HEIGHT / 8);
 		
 		// Send data for a panel
-		// SpiSendPanel(&VMSBitmap[panelOffset], VMS_HEIGHT);
+		SpiSendPanel(&VMSBitmap[panelOffset], VMS_HEIGHT);
 	}
 
 	sem_post(&displayLock);
@@ -873,11 +854,6 @@ void VMSDriver_Clear(bool doUpdate)
 	}
 }
 
-void VMSDriver_White(unsigned char val)
-{
-	memset(VMSBitmap, val, displaySize);
-}
-
 //
 // void VMSDriver_Test()
 //
@@ -1364,7 +1340,7 @@ void VMSDriver_RenderBitmapToPanels(int bmpWidth, int bmpHeight, int firstPanel,
 		panelHeight = VMS_WIDTH;
 	}
 
-	memset(VMSBitmap, 0, sizeof(VMSBitmap));
+	//memset(VMSBitmap, 0, sizeof(VMSBitmap));
 	for(y = 0; y < bmpHeight; y++)
 	{
 		for(x = 0; x < bmpWidth; x++)

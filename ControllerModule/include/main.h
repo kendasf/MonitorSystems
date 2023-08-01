@@ -54,7 +54,7 @@ void CheckMemoryCardCapacity(void);
 unsigned long long GetSecondsTimer(void);
 int ExchangeTcpData(int sockFd);
 void ExchangeUARTData(uart_ptr dev);
-void DisplaySpeed(int speedToDisplay, DeviceInfoS *pDeviceInfo);
+void DisplaySpeedToScreen(int speedToDisplay, DeviceInfoS *pDeviceInfo);
 void UpdateLuxmeter(void);
 unsigned int GetLuxmeterValue(void);
 int GetPWMDuty(void);
