@@ -741,10 +741,10 @@ int main(int argc, char *argv[])
          }
 #endif
       }
-      else
-      {
-         DisplaySpeedToScreen(0, &deviceInfo);
-      }
+      // else
+      // {
+      //    DisplaySpeedToScreen(0, &deviceInfo);
+      // }
 
       if ((UpdateLuxmeterCnt > 30) )  // Update auto dim every 30 seconds
       {
@@ -1259,7 +1259,7 @@ void animationShow(DeviceInfoS *pDeviceInfo, unsigned int bitMap)
          currentFrameStart = now;
 
          AnimationFrameIdx++;                            // Frame rollover
-         if( AnimationFrameIdx > NumAnimationFrames)
+         if( AnimationFrameIdx > NumAnimationFrames - 1)
          {
             AnimationFrameIdx = 0;
          }
