@@ -644,8 +644,8 @@ int main(int argc, char *argv[])
          int speedBefore = speedToDisplay;
 
          
-         //speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
-         speedToDisplay = Radar_GetLastSpeed();
+         speedToDisplay = Radar_DetermineSpeedForDisplay(&deviceInfo);
+         //speedToDisplay = Radar_GetLastSpeed();
          // printf("<3> Checking Speed - %d\n", speedToDisplay);
          
          if (speedToDisplay < 0)    // Only coming towarrds us for now
@@ -741,10 +741,6 @@ int main(int argc, char *argv[])
          }
 #endif
       }
-      // else
-      // {
-      //    DisplaySpeedToScreen(0, &deviceInfo);
-      // }
 
       if ((UpdateLuxmeterCnt > 30) )  // Update auto dim every 30 seconds
       {
@@ -1122,9 +1118,23 @@ void speedShow(int speedToDisplay, DeviceInfoS *pDeviceInfo, unsigned int bitMap
          case SPEED:
             if ( duration >= pDeviceInfo->blinkOnDurationMs )          // is 850ms > 12ms
             {
-               myState = IMAGE;
-               AnimationFrameIdx++;                            // Next
                currentFrameStart = now;
+               switch(pDeviceInfo->bitmapsConfig[bitMap].speedDisplayMode)    // Blink or no Blink
+               {
+                  case 1:
+                  default:
+                     // No blink mode
+                     printf("No Blink Mode \t");
+                     myState = SPEED;
+                  break;
+
+                  case 2:
+                     // Blink mode
+                     printf("Blink Mode \t");
+                     AnimationFrameIdx++;
+                     myState = IMAGE;
+                  break;
+               }
             }
          break;
 
@@ -1151,39 +1161,30 @@ void speedShow(int speedToDisplay, DeviceInfoS *pDeviceInfo, unsigned int bitMap
 
       if( SPEED == myState )
       {
-         switch( pDeviceInfo->bitmapsConfig[bitMap].speedDisplayMode )
-         {
-            case 1:
-            case 2:
-                  printf("<7>Display Speed\t");
+         printf("<7>Display Speed\t");
                   
-                  speed = CurrentlyDisplayedSpeed;
-                  if (pDeviceInfo->unitType == 1)
-                  {
-                     
-                     speed = speed * 16093;
-                     if ((speed % 10000) >= 5000)
-                        addKph = 1;
-                     speed /= 10000;
-                     speed += addKph;
-                  }
-                  printf("%d\n", speed);
+         speed = CurrentlyDisplayedSpeed;
+         if (pDeviceInfo->unitType == 1)
+         {
+            
+            speed = speed * 16093;
+            if ((speed % 10000) >= 5000)
+               addKph = 1;
+            speed /= 10000;
+            speed += addKph;
+         }
+         printf("%d\n", speed);
 
-                  VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bitMap].x, pDeviceInfo->bitmapsConfig[bitMap].y,
-                           pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bitMap].font);
+         VMSDriver_WriteSpeed(pDeviceInfo->bitmapsConfig[bitMap].x, pDeviceInfo->bitmapsConfig[bitMap].y,
+                  pDeviceInfo->panelsConfiguration, speed, pDeviceInfo->bitmapsConfig[bitMap].font);
 
-                  if( 1 == bitMap ) // We are in blink mode
-                  {
-                     if(NumAnimationFrames > 0 )                           // Handle animation indexing
-                     {
-                        printf("Adding image to screen\n");
-                        AnimationFrameIdx = 0;
-                     }
-                  }
-            break;
-
-            default:
-            break;
+         if( 1 == bitMap ) // We are in blink mode
+         {
+            if(NumAnimationFrames > 0 )                           // Handle animation indexing
+            {
+               printf("Adding image to screen\n");
+               AnimationFrameIdx = 0;
+            }
          }
       }
       
@@ -1360,12 +1361,10 @@ void DisplaySpeedToScreen(int speedToDisplay, DeviceInfoS *pDeviceInfo)
    switch(theMode)
    {
       case SPEED_BLINK:
-         //printf("Running blink 1\n");
          speedShow(speedToDisplay, pDeviceInfo, 1);
       break;
 
       case SPEED_MAX:
-         //printf("Running blink 2\n");
          speedShow(speedToDisplay, pDeviceInfo, 2);
       break;
 
